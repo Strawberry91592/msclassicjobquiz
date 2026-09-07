@@ -3,9 +3,11 @@ main = "worker.js"
 compatibility_date = "2026-09-01"
 
 [vars]
-ALLOWED_ORIGIN = "https://YOUR-USERNAME.github.io"
+ALLOWED_ORIGIN = "https://strawberry91592.github.io"
 DATASET_NAME = "classic_quiz_results"
-# ACCOUNT_ID and ANALYTICS_READ_TOKEN must be added as secrets, not committed.
+
+[secrets]
+required = ["ACCOUNT_ID", "ANALYTICS_READ_TOKEN"]
 
 [[analytics_engine_datasets]]
 binding = "RESULTS"

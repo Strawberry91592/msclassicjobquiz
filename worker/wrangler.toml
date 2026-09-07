@@ -1,0 +1,12 @@
+name = "maplestory-classic-quiz-stats"
+main = "worker.js"
+compatibility_date = "2026-09-01"
+
+[vars]
+ALLOWED_ORIGIN = "https://YOUR-USERNAME.github.io"
+DATASET_NAME = "classic_quiz_results"
+# ACCOUNT_ID and ANALYTICS_READ_TOKEN must be added as secrets, not committed.
+
+[[analytics_engine_datasets]]
+binding = "RESULTS"
+dataset = "classic_quiz_results"

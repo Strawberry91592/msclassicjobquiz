@@ -1,17 +1,30 @@
 # Shared Result Counter Setup
 
-The quiz can optionally show an aggregate count of how often each 2nd Job is the final match. GitHub Pages is static, so the counter needs a small external endpoint.
+The quiz has a community result counter for completed attempts. GitHub Pages is static, so the counter uses a small Cloudflare Worker with Workers Analytics Engine.
 
-This repository includes a Cloudflare Worker example using Workers Analytics Engine. The browser sends only the winning job key; no answers, names, IP addresses, or persistent identifiers are sent by the quiz.
+The browser sends only the winning job key, mode, and answered-question count. The Worker stores anonymous aggregate counts only. It does not store quiz answers, names, IP addresses, or persistent identifiers.
 
-The Worker expects:
+## What is already in the repository
 
-- `POST /result` with `{ "winner": "hunter" }`
-- `GET /stats` returning aggregate totals
+- `worker/worker.js` accepts `POST /result` and serves `GET /stats`.
+- `worker/wrangler.toml` defines the Analytics Engine dataset and the live GitHub Pages origin.
+- `.github/workflows/deploy-stats-worker.yml` deploys the Worker whenever the Worker files change.
+- After deployment, the workflow automatically writes the Worker URL into `config.js`, so the GitHub Pages quiz becomes connected without manually editing the frontend.
 
-Allowed winner keys are the ten 2nd Job paths used by `classes.js`.
+## One-time Cloudflare setup
 
-Deploy the Worker, set the dataset name/account credentials required by the Worker, then set `STATS_API_URL` in `config.js` to the Worker URL.
+Cloudflare currently requires authentication for Worker deployments. Create a Cloudflare API token with permission to deploy Workers and an Analytics Engine read token for the account. Keep both as GitHub repository secrets; never commit them to the repository.
 
-### Community eligibility
-Only results with 30–48 questions containing at least one ranked answer are submitted. The Worker enforces the same threshold, so incomplete browser requests cannot enter the aggregate totals.
+In the GitHub repository, open **Settings → Secrets and variables → Actions** and add:
+
+- `CLOUDFLARE_API_TOKEN` — token used by GitHub Actions to deploy the Worker.
+- `CLOUDFLARE_ACCOUNT_ID` — your Cloudflare account ID.
+- `ANALYTICS_READ_TOKEN` — a Cloudflare API token that can read Workers Analytics Engine through the SQL API.
+
+Then run **Actions → Deploy Stats Worker → Run workflow** once. The workflow deploys `maplestory-classic-quiz-stats`, stores the required Worker secrets, and automatically connects `config.js` to the resulting Worker URL.
+
+Cloudflare's current documentation confirms that Analytics Engine datasets are created automatically on the first write when the dataset binding is defined in Wrangler, and that GitHub Actions deployments use a Cloudflare API token and account ID. citeturn493320search0turn493320search3
+
+## Community eligibility
+
+Only results with 30–48 answered questions are submitted by the quiz, and the Worker independently rejects anything outside that range. A fully skipped attempt becomes Beginner and is never counted.

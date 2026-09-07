@@ -2,6 +2,9 @@
 
 GitHub Pages-ready static quiz for choosing among the ten MapleStory Classic World 2nd Jobs.
 
+## Open source
+This project is released under the **MIT License**. See [LICENSE](LICENSE).
+
 ## Current behavior
 - Quiz opens directly on Question 1 after choosing the quiz card.
 - Click answers in order to rank them. Partial rankings and unranked choices are supported.

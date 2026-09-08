@@ -117,6 +117,22 @@ test('results omit the redundant progression section', async ({ page }) => {
   await expect(page.locator('.stage')).toHaveCount(0);
 });
 
+test('playstyle signals compare two explicit bars without the old marker', async ({ page }) => {
+  await mockStats(page, { page: 1 });
+  await page.goto('/index.html');
+  await advanceToResults(page, 48);
+
+  const cards = page.locator('.playstyle-panel .signal-card');
+  await expect(cards).toHaveCount(6);
+  await expect(cards.first()).toContainText('YOU');
+  await expect(cards.first()).toContainText('Page');
+  await expect(cards.first().locator('.signal-compare-row')).toHaveCount(2);
+  await expect(cards.first().locator('.signal-marker')).toHaveCount(0);
+  await expect(cards.first().locator('.signal-compare-you .signal-compare-track i')).toHaveAttribute('style', /width:/);
+  await expect(cards.first().locator('.signal-compare-job .signal-compare-track i')).toHaveAttribute('style', /width:/);
+  await expect(cards.first()).toContainText(/Very similar preference|You prefer this more|Page leans higher/);
+});
+
 test('results-page community rankings reuse the compact popup layout', async ({ page }) => {
   await mockStats(page, { assassin: 1 });
   await page.goto('/index.html');

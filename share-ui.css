@@ -1,18 +1,15 @@
-/* Header controls: keep Rankings, Share, and Night in a dedicated row below the branding. */
-.theme-switch-wrap{display:flex!important;justify-content:flex-end;align-items:center;gap:8px;margin-top:13px;padding:0 2px}
-.theme-switch-wrap .theme-toggle{flex:0 0 auto;min-height:38px;padding:7px 11px;border-radius:9px}
-.share-toggle-icon{position:relative;display:inline-block;width:15px;height:16px;vertical-align:middle;font-size:0;background:radial-gradient(circle at 2px 8px,currentColor 0 3px,transparent 3.2px)}
-.share-toggle-icon::before,.share-toggle-icon::after{content:"";position:absolute;left:4px;width:8px;height:1.5px;background:currentColor;transform-origin:left center}
-.share-toggle-icon::before{top:5px;transform:rotate(29deg)}
-.share-toggle-icon::after{top:11px;transform:rotate(-29deg)}
-.share-toggle-icon i,.share-toggle-icon b{position:absolute;width:6px;height:6px;border-radius:50%;background:currentColor;font-size:0;font-style:normal}
-.share-toggle-icon i{top:1px;right:0}.share-toggle-icon b{bottom:1px;right:0}
+/* Header controls: occupy their own flow row below the branding on every viewport. */
+.theme-switch-wrap{position:static!important;inset:auto!important;float:none!important;display:flex!important;width:100%;justify-content:flex-end;align-items:center;gap:8px;margin-top:13px;padding:0 2px;transform:none!important}
+.theme-switch-wrap .theme-toggle{position:static!important;flex:0 0 auto;min-height:38px;padding:7px 11px;border-radius:9px}
+.share-toggle-icon{display:block;width:17px;height:17px;flex:0 0 17px;vertical-align:middle}
+.share-toggle-icon path{display:block}
 
 .share-modal{position:fixed;inset:0;z-index:30;padding:20px;background:rgba(20,34,50,.58);overflow:auto}
 .share-dialog{width:min(540px,100%);margin:12vh auto 4vh;overflow:hidden;background:rgba(255,255,255,.98)}
 .share-dialog-titlebar{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 14px;border-bottom:1px solid #c4d8e4;background:linear-gradient(180deg,#71a8d1,#598fb9);border-radius:14px 14px 0 0;color:#fff}
 .share-dialog-titlebar-left{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:900;letter-spacing:.1em}
-.share-dialog-icon{display:grid;place-items:center;width:23px;height:23px;border:1px solid rgba(255,255,255,.5);border-radius:7px;background:rgba(255,255,255,.13);font-size:14px}
+.share-dialog-icon{display:grid;place-items:center;width:28px;height:28px;border:1px solid rgba(255,255,255,.5);border-radius:7px;background:rgba(255,255,255,.13);color:#fff}
+.share-dialog-svg{display:block;width:18px;height:18px}
 .share-close-btn{width:28px;height:28px;padding:0;border:1px solid rgba(255,255,255,.55);border-radius:8px;background:rgba(255,255,255,.13);color:#fff;font-size:21px;line-height:1;cursor:pointer}
 .share-close-btn:hover{background:rgba(255,255,255,.22)}
 .share-dialog-content{padding:24px}.share-dialog-kicker{color:#5e8a4d;font-size:10px;font-weight:900;letter-spacing:.11em}
@@ -37,7 +34,7 @@ body.night-mode .share-platform-grid a{background:#1e3044;border-color:#354d63;c
 @media(max-width:650px){
   .theme-switch-wrap{margin-top:11px;padding:0;gap:6px;flex-wrap:nowrap}
   .theme-switch-wrap .theme-toggle{min-height:37px;padding:7px 9px;font-size:12px}
-  .share-toggle-icon{transform:scale(.92)}
+  .share-toggle-icon{width:16px;height:16px;flex-basis:16px}
   .share-modal{padding:10px}.share-dialog{margin:5vh auto 2vh}.share-dialog-content{padding:18px}
   .share-platform-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.share-platform-grid a:last-child{grid-column:1/-1}
 }

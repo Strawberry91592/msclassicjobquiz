@@ -8,7 +8,10 @@ async function mockStats(page, totals = {}) {
     const request = route.request();
     const url = request.url();
     if (request.method() === 'POST' && url.endsWith('/result')) {
-      posts.push(JSON.parse(request.postData() || '{}'));
+      posts.push({
+        body: JSON.parse(request.postData() || '{}'),
+        clientKey: request.headers()['x-quiz-client-key'] || ''
+      });
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) });
       return;
     }
@@ -67,7 +70,8 @@ test('completing all 48 questions produces a 2nd Job result', async ({ page }) =
   await expect(page.locator('#winnerName')).not.toHaveText('');
   await expect(page.locator('.job-match-card')).toHaveCount(10);
   await expect.poll(() => posts.length).toBe(1);
-  expect(posts[0]).toMatchObject({ mode: '12', answered: 48 });
+  expect(posts[0].body).toMatchObject({ mode: '12', answered: 48 });
+  expect(posts[0].clientKey).toMatch(/^[A-Za-z0-9_-]{20,100}$/);
 });
 
 test('29 answered questions are not counted', async ({ page }) => {
@@ -79,14 +83,19 @@ test('29 answered questions are not counted', async ({ page }) => {
   expect(posts).toHaveLength(0);
 });
 
-test('30 answered questions are counted', async ({ page }) => {
+test('30 answered questions are counted and use the anonymous client key', async ({ page }) => {
   const posts = await mockStats(page);
   await page.goto('/index.html');
   await advanceToResults(page, 30);
   await expect(page.locator('#results')).toBeVisible();
   await expect(page.locator('#communityEligibility')).toContainText('Counted');
   await expect.poll(() => posts.length).toBe(1);
-  expect(posts[0]).toMatchObject({ mode: '12', answered: 30 });
+  expect(posts[0].body).toMatchObject({ mode: '12', answered: 30 });
+  expect(posts[0].clientKey).toMatch(/^[A-Za-z0-9_-]{20,100}$/);
+
+  await page.reload();
+  const keyAfterReload = await page.evaluate(() => localStorage.getItem('msclassic-quiz-client-key'));
+  expect(keyAfterReload).toBe(posts[0].clientKey);
 });
 
 test('skipping every question produces the Beginner result and no community submission', async ({ page }) => {

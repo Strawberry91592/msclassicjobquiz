@@ -93,7 +93,7 @@
     46: [{consistency:0.90,special:0.68},{setup:0.92,versatility:0.82},{utility:0.92,versatility:0.88},{payoff:0.96,attention:0.72}]
   });
 
-  const JOB_GUIDES = {
+  window.QUIZ_JOB_GUIDES = {
     Fighter:[['Lv. 1–30','https://meowdb.com/msclassic/guides/warrior-class-guide'],['Lv. 30–70','https://meowdb.com/msclassic/guides/fighter-class-guide']],
     Page:[['Lv. 1–30','https://meowdb.com/msclassic/guides/warrior-class-guide'],['Lv. 30–70','https://meowdb.com/msclassic/guides/page-class-guide']],
     Spearman:[['Lv. 1–30','https://meowdb.com/msclassic/guides/warrior-class-guide'],['Lv. 30–70','https://meowdb.com/msclassic/guides/spearman-class-guide']],
@@ -105,26 +105,10 @@
     Assassin:[['Lv. 1–30','https://meowdb.com/msclassic/guides/thief-class-guide'],['Lv. 30–70','https://meowdb.com/msclassic/guides/assassin-class-guide']],
     Bandit:[['Lv. 1–30','https://meowdb.com/msclassic/guides/thief-class-guide'],['Lv. 30–70','https://meowdb.com/msclassic/guides/bandit-class-guide']]
   };
-  const escapeHtml=value=>String(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;');
-  const statsUrl=()=>String(window.STATS_API_URL||'').replace(/\/$/,'');
-
-  function addGuideLinks(){
-    document.querySelectorAll('.job-match-card').forEach(card=>{
-      if(card.querySelector('.job-match-guides')) return;
-      const title=card.querySelector('.job-match-title h4');
-      const body=card.querySelector('.job-match-body');
-      if(!title||!body) return;
-      const links=JOB_GUIDES[title.textContent.trim()];
-      if(!links) return;
-      const box=document.createElement('div');
-      box.className='job-match-guides';
-      box.innerHTML=`<span>MEOWDB GUIDES</span>${links.map(([label,url])=>`<a href="${url}" target="_blank" rel="noopener">${escapeHtml(label)}</a>`).join('')}`;
-      body.appendChild(box);
-    });
-  }
 
   // Analytics Engine writes are non-blocking. A just-accepted submission can be
   // temporarily absent from the read path, so retry an immediately-empty GET.
+  const statsUrl=()=>String(window.STATS_API_URL||'').replace(/\/$/,'');
   const nativeFetch=window.fetch.bind(window);
   let acceptedSubmissionUntil=0;
   window.fetch=async(input,init={})=>{
@@ -163,11 +147,4 @@
     .job-match-guides a:hover{text-decoration:underline}
   `;
   document.head.appendChild(style);
-
-  function init(){
-    addGuideLinks();
-    const leaderboard=document.getElementById('leaderboard');
-    if(leaderboard)new MutationObserver(addGuideLinks).observe(leaderboard,{childList:true,subtree:true});
-  }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();

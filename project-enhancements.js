@@ -105,7 +105,6 @@
     Assassin:[['Lv. 1–30','https://meowdb.com/msclassic/guides/thief-class-guide'],['Lv. 30–70','https://meowdb.com/msclassic/guides/assassin-class-guide']],
     Bandit:[['Lv. 1–30','https://meowdb.com/msclassic/guides/thief-class-guide'],['Lv. 30–70','https://meowdb.com/msclassic/guides/bandit-class-guide']]
   };
-  const JOB_ORDER=['fighter','page','spearman','fp','il','cleric','hunter','crossbow','assassin','bandit'];
   const escapeHtml=value=>String(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;');
   const statsUrl=()=>String(window.STATS_API_URL||'').replace(/\/$/,'');
 
@@ -122,48 +121,6 @@
       box.innerHTML=`<span>MEOWDB GUIDES</span>${links.map(([label,url])=>`<a href="${url}" target="_blank" rel="noopener">${escapeHtml(label)}</a>`).join('')}`;
       body.appendChild(box);
     });
-  }
-
-  function renderOpeningStats(panel,data){
-    if(!data?.ok){panel.innerHTML='<div class="opening-stats-state">Community results are unavailable right now. You can still take the quiz normally.</div>';return;}
-    const total=Number(data.total||0);
-    const rows=JOB_ORDER.map((key,i)=>{
-      const cls=window.CLASS_DATA?.[key];
-      const count=Number(data.totals?.[key]||0);
-      const pct=total?count/total*100:0;
-      return `<div class="opening-stats-row"><div class="opening-stats-rank">#${i+1}</div><div class="opening-stats-job"><strong>${escapeHtml(cls?.name||key)}</strong><span>${escapeHtml(cls?.family||'')}</span><div class="opening-stats-meter"><i style="width:${Math.min(100,pct)}%"></i></div></div><div class="opening-stats-number"><b>${count}</b><span>${pct.toFixed(1)}%</span></div></div>`;
-    }).join('');
-    panel.innerHTML=`<div class="opening-stats-meta">${total} completed quizzes counted</div>${rows}`;
-  }
-
-  async function getStats(){
-    const url=statsUrl();
-    if(!url) throw new Error('not connected');
-    const res=await fetch(`${url}/stats`,{cache:'no-store'});
-    if(!res.ok) throw new Error('stats request failed');
-    const data=await res.json();
-    if(!data?.ok) throw new Error('stats unavailable');
-    return data;
-  }
-
-  async function loadOpeningStats(){
-    const panel=document.getElementById('openingCommunityStats');
-    if(!panel)return;
-    panel.innerHTML='<div class="opening-stats-state">Loading the latest Maple World results…</div>';
-    try{renderOpeningStats(panel,await getStats());}
-    catch(_){panel.innerHTML='<div class="opening-stats-state"><strong>Community results are unavailable right now.</strong><span>You can still take the quiz normally.</span></div>';}
-  }
-
-  function ensureOpeningPanel(){
-    const modal=document.querySelector('#modeModal .mode-content');
-    if(!modal||document.getElementById('openingCommunity'))return;
-    const note=modal.querySelector('.modal-note');
-    const section=document.createElement('section');
-    section.id='openingCommunity';
-    section.className='opening-community';
-    section.innerHTML='<div class="opening-community-head"><div><div class="opening-community-kicker">MAPLE WORLD RESULTS</div><h3>Community Job Totals</h3><p>See the current result totals without taking the quiz.</p></div><span class="opening-community-mark">10 CURRENT 2ND JOBS</span></div><div id="openingCommunityStats" class="opening-community-stats"></div>';
-    if(note)note.insertAdjacentElement('afterend',section);else modal.appendChild(section);
-    loadOpeningStats();
   }
 
   // Analytics Engine writes are non-blocking. A just-accepted submission can be
@@ -204,23 +161,10 @@
     .job-match-guides>span{width:100%;font-size:.66rem;font-weight:800;letter-spacing:.08em;opacity:.58}
     .job-match-guides a{display:inline-flex;padding:6px 9px;border:1px solid var(--line,#c8d0dc);border-radius:8px;font-size:.73rem;font-weight:700;text-decoration:none;color:inherit;background:rgba(127,143,166,.08)}
     .job-match-guides a:hover{text-decoration:underline}
-    .opening-community{margin-top:16px;border-top:1px solid rgba(127,143,166,.22);padding-top:16px}
-    .opening-community-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:10px}
-    .opening-community-head h3{margin:0}.opening-community-head p{margin:3px 0 0;opacity:.72;font-size:.86rem}
-    .opening-community-kicker,.opening-community-mark{font-size:.68rem;font-weight:800;letter-spacing:.08em;opacity:.62}.opening-community-mark{white-space:nowrap}
-    .opening-community-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-    .opening-stats-meta{grid-column:1 / -1;font-size:.78rem;font-weight:700;opacity:.66;margin-bottom:2px}
-    .opening-stats-row{display:grid;grid-template-columns:26px 1fr auto;align-items:center;gap:8px;padding:8px 9px;border:1px solid rgba(127,143,166,.18);border-radius:9px;background:rgba(127,143,166,.06)}
-    .opening-stats-rank{font-weight:800;opacity:.7;text-align:center}.opening-stats-job strong{display:block;font-size:.84rem}.opening-stats-job span{display:block;font-size:.7rem;opacity:.6}
-    .opening-stats-meter{height:4px;margin-top:5px;border-radius:99px;overflow:hidden;background:rgba(127,143,166,.15)}.opening-stats-meter i{display:block;height:100%;border-radius:99px;background:currentColor;opacity:.6}
-    .opening-stats-number{text-align:right;font-size:.8rem}.opening-stats-number b{display:block}.opening-stats-number span{font-size:.68rem;opacity:.62}
-    .opening-stats-state{grid-column:1 / -1;padding:12px;border:1px dashed rgba(127,143,166,.3);border-radius:9px;opacity:.76}.opening-stats-state span{display:block;margin-top:3px;font-size:.78rem}
-    @media(max-width:700px){.opening-community-head{display:block}.opening-community-mark{display:block;margin-top:6px}.opening-community-stats{grid-template-columns:1fr}}
   `;
   document.head.appendChild(style);
 
   function init(){
-    ensureOpeningPanel();
     addGuideLinks();
     const leaderboard=document.getElementById('leaderboard');
     if(leaderboard)new MutationObserver(addGuideLinks).observe(leaderboard,{childList:true,subtree:true});

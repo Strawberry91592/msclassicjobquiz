@@ -200,3 +200,71 @@ test('mobile layout has no horizontal overflow', async ({ page }) => {
   }));
   expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.innerWidth + 1);
 });
+
+test('header controls sit below the branding on desktop and mobile', async ({ page }) => {
+  await mockStats(page);
+  for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto('/index.html');
+    const brand = await page.locator('.brand-row').boundingBox();
+    const controls = await page.locator('.theme-switch-wrap').boundingBox();
+    const intro = await page.locator('.intro-cards').boundingBox();
+    expect(brand).not.toBeNull();
+    expect(controls).not.toBeNull();
+    expect(intro).not.toBeNull();
+    expect((controls?.y ?? 0)).toBeGreaterThanOrEqual((brand?.y ?? 0) + (brand?.height ?? 0) - 1);
+    expect((intro?.y ?? 0)).toBeGreaterThanOrEqual((controls?.y ?? 0) + (controls?.height ?? 0) - 1);
+    expect((controls?.x ?? 0) + (controls?.width ?? 0)).toBeLessThanOrEqual(viewport.width + 1);
+  }
+});
+
+test('native share uses the quiz title, text, and current URL', async ({ page }) => {
+  let shared = null;
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'share', {
+      configurable: true,
+      value: data => { window.__sharedData = data; return Promise.resolve(); }
+    });
+    Object.defineProperty(navigator, 'canShare', { configurable: true, value: () => true });
+  });
+  await mockStats(page);
+  await page.goto('/index.html');
+  await page.locator('#shareToggle').click();
+  await page.waitForFunction(() => window.__sharedData);
+  shared = await page.evaluate(() => window.__sharedData);
+  expect(shared.title).toBe('MapleStory Classic World Job Quiz');
+  expect(shared.text).toBe('Find out which MS Classic World Job best matches your playstyle.');
+  expect(shared.url).toBe(await page.evaluate(() => window.location.href));
+  await expect(page.locator('#shareModal')).toBeHidden();
+});
+
+test('unsupported native sharing opens fallback with all requested platforms', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'share', { configurable: true, value: undefined });
+    Object.defineProperty(navigator, 'canShare', { configurable: true, value: undefined });
+  });
+  await mockStats(page);
+  await page.goto('/index.html');
+  await page.locator('#shareToggle').click();
+  await expect(page.locator('#shareModal')).toBeVisible();
+  await expect(page.locator('.share-platform-grid a')).toHaveCount(5);
+  for (const platform of ['whatsapp', 'reddit', 'facebook', 'x', 'bluesky']) {
+    await expect(page.locator(`[data-share-platform="${platform}"]`)).toHaveAttribute('href', /^https:\/\//);
+  }
+  await expect(page.locator('.share-dialog-svg')).toHaveCount(1);
+  await page.locator('.share-close-btn').click();
+  await expect(page.locator('#shareModal')).toBeHidden();
+});
+
+test('copy link reports success in the share fallback', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'share', { configurable: true, value: undefined });
+    Object.defineProperty(navigator, 'canShare', { configurable: true, value: undefined });
+  });
+  await mockStats(page);
+  await page.goto('/index.html');
+  await page.locator('#shareToggle').click();
+  await page.locator('#copyShareLink').click();
+  await expect(page.locator('#copyShareLink strong')).toHaveText('Link copied!');
+  await expect(page.locator('#copyShareStatus')).toHaveText('The quiz link has been copied to your clipboard.');
+});

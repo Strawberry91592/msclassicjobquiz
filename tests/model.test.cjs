@@ -46,7 +46,9 @@ const forbiddenSpecificTerms = [
 ];
 const questionText = questions.flatMap(q => [q.text, ...q.options.map(([, text]) => text)]).join(' ').toLowerCase();
 for (const term of forbiddenSpecificTerms) {
-  assert.equal(questionText.includes(term), false, `Question bank must not directly name or hint at a specific job/skill: ${term}`);
+  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pattern = term.includes(' ') ? new RegExp(`(?:^|\\s)${escaped}(?:$|\\s|[.,!?])`, 'i') : new RegExp(`\\b${escaped}\\b`, 'i');
+  assert.equal(pattern.test(questionText), false, `Question bank must not directly name or hint at a specific job/skill: ${term}`);
 }
 
 assert.equal(JSON.stringify(Object.keys(classes)), JSON.stringify(['fighter', 'page', 'spearman', 'fp', 'il', 'cleric', 'hunter', 'crossbow', 'assassin', 'bandit']), 'The scoring model must contain exactly the ten current 2nd Jobs in the approved order.');

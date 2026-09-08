@@ -108,6 +108,28 @@ test('skipping every question produces the Beginner result and loads community s
   expect(posts).toHaveLength(0);
 });
 
+test('results-page community rankings reuse the compact popup layout', async ({ page }) => {
+  await mockStats(page, { assassin: 1 });
+  await page.goto('/index.html');
+  await advanceToResults(page, 30);
+
+  const rows = page.locator('.shared-stats-panel .stats-row');
+  await expect(rows).toHaveCount(10);
+  await expect(rows.first()).toContainText('Assassin');
+
+  const firstLayout = await rows.nth(0).evaluate(el => getComputedStyle(el).gridColumn);
+  expect(firstLayout).toBe('1 / -1');
+
+  const boxes = await rows.nth(1).boundingBox();
+  const nextBox = await rows.nth(2).boundingBox();
+  expect(boxes).not.toBeNull();
+  expect(nextBox).not.toBeNull();
+  expect(Math.abs((boxes?.y ?? 0) - (nextBox?.y ?? 0))).toBeLessThan(4);
+
+  await expect(rows.nth(0)).toContainText('100.0%');
+  await expect(rows.nth(9)).toContainText('0.0%');
+});
+
 test('community rankings open, sort, and explain what the ranking means', async ({ page }) => {
   await mockStats(page, { fighter: 5, bandit: 2, hunter: 1 });
   await page.goto('/index.html');

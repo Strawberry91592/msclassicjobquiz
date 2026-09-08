@@ -20,12 +20,7 @@
     .replaceAll('"','&quot;')
     .replaceAll("'",'&#39;');
 
-  // The old opening-page totals were useful as a prototype, but the rankings
-  // now live behind a dedicated control so the landing modal stays focused.
   document.getElementById('openingCommunity')?.remove();
-  // project-enhancements.js still contains legacy opening-panel initialization
-  // for compatibility with older markup. It runs its init on DOMContentLoaded,
-  // so remove the legacy panel again after that initializer has run.
   document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('openingCommunity')?.remove();
   }, {once:true});
@@ -33,6 +28,17 @@
   const wrap = document.querySelector('.theme-switch-wrap');
   const themeToggle = document.getElementById('themeToggle');
   if (!wrap || !themeToggle || document.getElementById('communityToggle')) return;
+
+  const mapleMark = document.querySelector('.maple-mark');
+  if (mapleMark) {
+    mapleMark.innerHTML = `
+      <svg class="maple-leaf-mark" viewBox="0 0 100 100" role="presentation" aria-hidden="true">
+        <path class="maple-leaf-outline" d="M50 12 L56 34 L72 28 L66 43 L84 50 L67 57 L71 74 L55 68 L50 91 L45 68 L29 74 L33 57 L16 50 L34 43 L28 28 L44 34 Z"/>
+        <path class="maple-leaf-fill" d="M50 17 L55 39 L70 33 L63 47 L78 52 L62 59 L66 68 L53 63 L50 84 L47 63 L34 68 L37 58 L22 52 L37 46 L31 33 L45 39 Z"/>
+        <path class="maple-leaf-highlight" d="M48 21 L51 39 L43 42 L36 36 L42 46 L54 53 L59 47 L54 40 Z"/>
+        <path class="maple-leaf-stem" d="M48 63 L51 64 L54 90 L49 90 Z"/>
+      </svg>`;
+  }
 
   const toggle = document.createElement('button');
   toggle.id = 'communityToggle';
@@ -92,6 +98,29 @@
     .theme-switch-wrap{display:flex;justify-content:flex-end;align-items:center;gap:8px}
     .community-toggle{min-width:0}
     .community-toggle-icon{font-size:.9em;line-height:1;display:inline-flex;align-items:center}
+
+    /* MapleStory-style leaf mark: warm red/orange leaf, adapted to each theme. */
+    .maple-mark{
+      background:linear-gradient(180deg,#ffffff,#edf5fb)!important;
+      border:1px solid #abc5d9!important;
+      box-shadow:0 4px 0 #c3d5e2,0 8px 18px rgba(53,95,121,.12)!important;
+      color:#e94b32;
+    }
+    .maple-mark .maple-leaf-mark{width:38px;height:38px;display:block;overflow:visible}
+    .maple-mark .maple-leaf-outline{fill:#85352b}
+    .maple-mark .maple-leaf-fill{fill:#e94b32}
+    .maple-mark .maple-leaf-highlight{fill:#ff7657;opacity:.92}
+    .maple-mark .maple-leaf-stem{fill:#b63729}
+    body.night-mode .maple-mark{
+      background:linear-gradient(180deg,#253c55,#1a2d42)!important;
+      border-color:#456078!important;
+      box-shadow:0 4px 0 #152538,0 8px 18px rgba(4,12,22,.28)!important;
+    }
+    body.night-mode .maple-mark .maple-leaf-outline{fill:#6f2d27}
+    body.night-mode .maple-mark .maple-leaf-fill{fill:#f05a3d}
+    body.night-mode .maple-mark .maple-leaf-highlight{fill:#ff8568}
+    body.night-mode .maple-mark .maple-leaf-stem{fill:#c64031}
+
     .community-ranking-modal{position:fixed;inset:0;z-index:20;padding:20px;background:rgba(20,34,50,.58);overflow:auto}
     .community-rankings-dialog{width:min(960px,100%);margin:8vh auto 4vh;overflow:hidden;background:rgba(255,255,255,.98)}
     .community-rankings-titlebar{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 14px;border-bottom:1px solid #c4d8e4;background:linear-gradient(180deg,#71a8d1,#598fb9);border-radius:14px 14px 0 0;color:#fff}

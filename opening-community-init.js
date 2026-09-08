@@ -42,7 +42,7 @@
   toggle.setAttribute('aria-haspopup','dialog');
   toggle.setAttribute('aria-expanded','false');
   toggle.title = 'Open community rankings';
-  toggle.innerHTML = '<span class="community-toggle-icon" aria-hidden="true">◆</span><span>Rankings</span>';
+  toggle.innerHTML = '<span class="community-toggle-icon" aria-hidden="true">🏆</span><span>Rankings</span>';
   wrap.insertBefore(toggle, themeToggle);
 
   const modal = document.createElement('section');
@@ -66,7 +66,7 @@
           <div>
             <div class="community-rankings-kicker">COMMUNITY RESULTS</div>
             <h2 id="communityRankingsTitle">2nd Job rankings</h2>
-            <p>Results from completed quizzes that meet the community-counting threshold.</p>
+            <p>These rankings do not show which job is objectively best. They show which jobs are most often matched to the playstyles of people who completed the quiz.</p>
           </div>
           <div class="community-live-status" aria-live="polite">
             <span class="community-live-dot" aria-hidden="true"></span>
@@ -91,7 +91,7 @@
   style.textContent = `
     .theme-switch-wrap{display:flex;justify-content:flex-end;align-items:center;gap:8px}
     .community-toggle{min-width:0}
-    .community-toggle-icon{font-size:.72em;line-height:1;opacity:.8}
+    .community-toggle-icon{font-size:.9em;line-height:1;display:inline-flex;align-items:center}
     .community-ranking-modal{position:fixed;inset:0;z-index:20;padding:20px;background:rgba(20,34,50,.58);overflow:auto}
     .community-rankings-dialog{width:min(960px,100%);margin:8vh auto 4vh;overflow:hidden;background:rgba(255,255,255,.98)}
     .community-rankings-titlebar{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 14px;border-bottom:1px solid #c4d8e4;background:linear-gradient(180deg,#71a8d1,#598fb9);border-radius:14px 14px 0 0;color:#fff}

@@ -26,11 +26,13 @@ async function mockStats(page, totals = {}) {
   return posts;
 }
 
-async function advance(page, count, answer = false) {
-  for (let i = 0; i < count; i += 1) {
-    if (answer) await page.locator('.answer-main').first().click();
+async function advanceToResults(page, answerCount = 0) {
+  for (let i = 0; i < 48; i += 1) {
+    if (i < answerCount) await page.locator('.answer-main').first().click();
     await page.locator('#nextBtn').click();
+    if (await page.locator('#results').isVisible()) return;
   }
+  throw new Error('The quiz did not reach results after 48 questions.');
 }
 
 test('opens directly on Question 1 with no landing screen', async ({ page }) => {
@@ -60,7 +62,7 @@ test('mouse ranking and keyboard shortcuts stay consistent', async ({ page }) =>
 test('completing all 48 questions produces a 2nd Job result', async ({ page }) => {
   const posts = await mockStats(page);
   await page.goto('/index.html');
-  await advance(page, 48, true);
+  await advanceToResults(page, 48);
   await expect(page.locator('#results')).toBeVisible();
   await expect(page.locator('#winnerName')).not.toHaveText('');
   await expect(page.locator('.job-match-card')).toHaveCount(10);
@@ -71,8 +73,7 @@ test('completing all 48 questions produces a 2nd Job result', async ({ page }) =
 test('29 answered questions are not counted', async ({ page }) => {
   const posts = await mockStats(page);
   await page.goto('/index.html');
-  await advance(page, 29, true);
-  await advance(page, 19, false);
+  await advanceToResults(page, 29);
   await expect(page.locator('#results')).toBeVisible();
   await expect(page.locator('#communityEligibility')).toContainText('Not counted');
   expect(posts).toHaveLength(0);
@@ -81,8 +82,7 @@ test('29 answered questions are not counted', async ({ page }) => {
 test('30 answered questions are counted', async ({ page }) => {
   const posts = await mockStats(page);
   await page.goto('/index.html');
-  await advance(page, 30, true);
-  await advance(page, 18, false);
+  await advanceToResults(page, 30);
   await expect(page.locator('#results')).toBeVisible();
   await expect(page.locator('#communityEligibility')).toContainText('Counted');
   await expect.poll(() => posts.length).toBe(1);
@@ -92,7 +92,7 @@ test('30 answered questions are counted', async ({ page }) => {
 test('skipping every question produces the Beginner result and no community submission', async ({ page }) => {
   const posts = await mockStats(page);
   await page.goto('/index.html');
-  await advance(page, 48, false);
+  await advanceToResults(page, 0);
   await expect(page.locator('#winnerName')).toHaveText('Beginner');
   expect(posts).toHaveLength(0);
 });

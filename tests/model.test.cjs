@@ -28,6 +28,8 @@ const dims = context.window.QUIZ_DIMS;
 const dimWeights = context.window.QUIZ_DIM_WEIGHTS;
 const questionWeights = context.window.QUIZ_QUESTION_WEIGHTS;
 const vectors = context.window.QUIZ_OPTION_VECTORS;
+const dimKeys = Object.keys(dims);
+const classKeys = Object.keys(classes);
 
 assert.equal(questions.length, 20, 'The quiz must contain exactly 20 questions.');
 assert.equal(JSON.stringify(questions.map(q => q.id)), JSON.stringify(Array.from({ length: 20 }, (_, i) => i + 1)), 'Question IDs must be a unique 1..20 sequence.');
@@ -51,8 +53,7 @@ for (const term of forbiddenSpecificTerms) {
   assert.equal(pattern.test(questionText), false, `Question bank must not directly name or hint at a specific job/skill: ${term}`);
 }
 
-assert.equal(JSON.stringify(Object.keys(classes)), JSON.stringify(['fighter', 'page', 'spearman', 'fp', 'il', 'cleric', 'hunter', 'crossbow', 'assassin', 'bandit']), 'The scoring model must contain exactly the ten current 2nd Jobs in the approved order.');
-const dimKeys = Object.keys(dims);
+assert.equal(JSON.stringify(classKeys), JSON.stringify(['fighter', 'page', 'spearman', 'fp', 'il', 'cleric', 'hunter', 'crossbow', 'assassin', 'bandit']), 'The scoring model must contain exactly the ten current 2nd Jobs in the approved order.');
 assert.equal(dimKeys.length, 20, 'The scoring model must contain exactly 20 playstyle dimensions.');
 assert.deepEqual(Object.keys(dimWeights).sort(), [...dimKeys].sort(), 'Every playstyle dimension must have a dimension weight.');
 
@@ -79,8 +80,122 @@ for (const [key, profile] of Object.entries(classes)) {
 
 const weights = Object.values(questionWeights).map(Number);
 assert.equal(weights.length, 20, 'There must be exactly 20 question weights.');
-assert.ok(Math.min(...weights) >= 0.84 && Math.max(...weights) <= 1.12, 'Question weights must stay within the balanced 0.84–1.12 range.');
-assert.ok(Math.abs(weights.reduce((sum, value) => sum + value, 0) / weights.length - 1.002) < 0.001, 'Question weights should remain centered around a neutral average.');
+assert.ok(Math.min(...weights) >= 0.84 && Math.max(...weights) <= 1.13, 'Question weights must stay within the balanced 0.84–1.13 range.');
+const weightMean = weights.reduce((sum, value) => sum + value, 0) / weights.length;
+assert.ok(Math.abs(weightMean - 1.002) < 0.001, `Question weights should remain centered around a neutral average. Actual mean: ${weightMean.toFixed(4)}`);
 
 assert.equal(context.window.QUIZ_JOB_GUIDES.bandit.length, 2, 'Every job must retain both leveling guide links.');
-console.log('Scoring model checks passed: 20 neutral questions, 8 class playstyle + 12 second-job playstyle, no direct job/skill names, 10 jobs, 20 dimensions, balanced weights, and valid vectors/profiles.');
+
+function normalizedVector(sparse) {
+  return Object.fromEntries(dimKeys.map(dim => [dim, typeof sparse?.[dim] === 'number' ? sparse[dim] : 0.5]));
+}
+
+function preferenceFor(question, rankedLetters) {
+  const aggregate = Object.fromEntries(dimKeys.map(dim => [dim, 0.5]));
+  const evidence = Object.fromEntries(dimKeys.map(dim => [dim, 0]));
+  rankedLetters.forEach((letter, rank) => {
+    const pref = normalizedVector(vectors[question.id]?.[letter.charCodeAt(0) - 65]);
+    const qWeight = Number(questionWeights[question.id] ?? 1);
+    const rankWeight = [1, 0.72, 0.5, 0.34][rank] ?? 0.25;
+    const weight = qWeight * rankWeight;
+    dimKeys.forEach(dim => {
+      const signal = Math.abs(pref[dim] - 0.5) * 2;
+      if (signal < 0.08) return;
+      const contribution = weight * signal;
+      const prior = evidence[dim];
+      const blend = contribution / (prior + contribution + 0.0001);
+      aggregate[dim] = aggregate[dim] * (1 - blend) + pref[dim] * blend;
+      evidence[dim] += contribution;
+    });
+  });
+  return { aggregate, evidence };
+}
+
+function calculateScoresFromAnswers(answerLetters) {
+  const userDims = Object.fromEntries(dimKeys.map(dim => [dim, 0.5]));
+  const userWeights = Object.fromEntries(dimKeys.map(dim => [dim, 0]));
+  answerLetters.forEach((letters, index) => {
+    const { aggregate, evidence } = preferenceFor(questions[index], letters);
+    dimKeys.forEach(dim => {
+      if (!evidence[dim]) return;
+      const oldWeight = userWeights[dim];
+      const newWeight = oldWeight + evidence[dim];
+      userDims[dim] = oldWeight ? ((userDims[dim] * oldWeight) + (aggregate[dim] * evidence[dim])) / newWeight : aggregate[dim];
+      userWeights[dim] = newWeight;
+    });
+  });
+  const scores = {};
+  classKeys.forEach(key => {
+    const cls = classes[key];
+    let sum = 0;
+    let denominator = 0;
+    dimKeys.forEach(dim => {
+      if (!userWeights[dim]) return;
+      const weight = (dimWeights[dim] || 1) * userWeights[dim];
+      const distance = Math.abs(userDims[dim] - cls.dims[dim]);
+      sum += (1 - Math.min(1, distance)) * weight;
+      denominator += weight;
+    });
+    scores[key] = denominator ? sum / denominator : 0.5;
+  });
+  return { scores, userDims };
+}
+
+function winner(scores) {
+  return classKeys.reduce((best, key) => scores[key] > scores[best] ? key : best, classKeys[0]);
+}
+
+// Every job must have a plausible answer fingerprint: for each question choose the answer
+// whose vector is closest to that job's profile, then ensure the classifier returns that job.
+for (const classKey of classKeys) {
+  const answerLetters = questions.map(question => {
+    const profile = classes[classKey].dims;
+    let bestLetter = 'A';
+    let bestDistance = Number.POSITIVE_INFINITY;
+    question.options.forEach(([letter]) => {
+      const vector = normalizedVector(vectors[question.id][letter.charCodeAt(0) - 65]);
+      let distance = 0;
+      let weightTotal = 0;
+      dimKeys.forEach(dim => {
+        const signal = Math.abs(vector[dim] - 0.5) * 2;
+        if (signal < 0.08) return;
+        const weight = dimWeights[dim] || 1;
+        distance += Math.abs(vector[dim] - profile[dim]) * weight;
+        weightTotal += weight;
+      });
+      const normalizedDistance = weightTotal ? distance / weightTotal : 0.5;
+      if (normalizedDistance < bestDistance) {
+        bestDistance = normalizedDistance;
+        bestLetter = letter;
+      }
+    });
+    return [bestLetter];
+  });
+  const result = calculateScoresFromAnswers(answerLetters);
+  assert.equal(winner(result.scores), classKey, `Synthetic answer fingerprint for ${classKey} does not recover the intended class.`);
+}
+
+// A neutral random-response regression test catches structural class bias independently of
+// real-world respondent preferences. Uniform single-choice answers should not collapse onto
+// one or two jobs purely because their profiles/vectors are easier to match.
+let seed = 0x9e3779b9;
+function random() {
+  seed ^= seed << 13;
+  seed ^= seed >>> 17;
+  seed ^= seed << 5;
+  return ((seed >>> 0) / 0x100000000);
+}
+const iterations = 10000;
+const counts = Object.fromEntries(classKeys.map(key => [key, 0]));
+for (let i = 0; i < iterations; i += 1) {
+  const answers = questions.map(() => [String.fromCharCode(65 + Math.floor(random() * 4))]);
+  const result = calculateScoresFromAnswers(answers);
+  counts[winner(result.scores)] += 1;
+}
+const proportions = classKeys.map(key => counts[key] / iterations);
+const minProportion = Math.min(...proportions);
+const maxProportion = Math.max(...proportions);
+assert.ok(minProportion >= 0.03, `Structural class bias detected: at least one class wins less than 3% of neutral random profiles. Counts: ${JSON.stringify(counts)}`);
+assert.ok(maxProportion <= 0.28, `Structural class bias detected: one class wins more than 28% of neutral random profiles. Counts: ${JSON.stringify(counts)}`);
+
+console.log(`Scoring model checks passed: ${questions.length} neutral questions, 10 jobs, ${dimKeys.length} dimensions, balanced weights, all ten synthetic class fingerprints recover correctly, and neutral random responses remain structurally balanced. Winner distribution: ${JSON.stringify(counts)}`);

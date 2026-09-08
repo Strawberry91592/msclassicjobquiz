@@ -21,11 +21,13 @@
     })
     .then(data => {
       const total = Number(data.total || 0);
-      const rows = jobs.map(([key,name,family], i) => {
-        const count = Number(data.totals?.[key] || 0);
-        const pct = total ? count / total * 100 : 0;
-        return `<div class="opening-stats-row"><div class="opening-stats-rank">#${i+1}</div><div class="opening-stats-job"><strong>${esc(name)}</strong><span>${family}</span><div class="opening-stats-meter"><i style="width:${Math.min(100,pct)}%"></i></div></div><div class="opening-stats-number"><b>${count}</b><span>${pct.toFixed(1)}%</span></div></div>`;
-      }).join('');
+      const rows = [...jobs]
+        .map(([key,name,family], sourceOrder) => ({key,name,family,sourceOrder,count:Number(data.totals?.[key] || 0)}))
+        .sort((a,b) => b.count - a.count || a.sourceOrder - b.sourceOrder)
+        .map(({name,family,count}, i) => {
+          const pct = total ? count / total * 100 : 0;
+          return `<div class="opening-stats-row"><div class="opening-stats-rank">#${i+1}</div><div class="opening-stats-job"><strong>${esc(name)}</strong><span>${family}</span><div class="opening-stats-meter"><i style="width:${Math.min(100,pct)}%"></i></div></div><div class="opening-stats-number"><b>${count}</b><span>${pct.toFixed(1)}%</span></div></div>`;
+        }).join('');
       panel.innerHTML = `<div class="opening-stats-meta">${total} completed quizzes counted</div>${rows}`;
     })
     .catch(() => {

@@ -7,7 +7,8 @@ ALLOWED_ORIGIN = "https://strawberry91592.github.io"
 DATASET_NAME = "classic_quiz_results"
 # Community results before this UTC timestamp are test data and are excluded
 # from the public aggregate. New submissions after the cutoff are counted.
-COMMUNITY_RESET_AT = "2026-09-08 13:48:00"
+# Reset for v2.0: 2026-09-08 22:31:00 UTC.
+COMMUNITY_RESET_AT = "2026-09-08 22:31:00"
 
 [secrets]
 required = ["ACCOUNT_ID", "ANALYTICS_READ_TOKEN"]

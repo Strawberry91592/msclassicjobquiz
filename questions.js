@@ -22,29 +22,26 @@ window.QUIZ_QUESTIONS = [
   {"id":20,"section":"2nd Job Playstyle","text":"After reaching level 30, what would make the new job feel like a natural fit for your character?","options":[["A","My familiar fighting style becomes noticeably stronger."],["B","I gain a new way to shape how monsters are fought."],["C","I gain tools that make me more useful in a party or in unusual situations."],["D","I gain a distinct specialty that gives me a reason to seek out the right targets or maps."]]}
 ];
 
-// Final prototype separation runs when CLASS_DATA is accessed, after classes.js has applied
-// its dimension/radius normalization. The adjustment is intentionally small and only sharpens
-// the ranged, reliable, positioning-oriented signature already present in the Hunter profile.
+// Apply a calibrated Hunter prototype immediately when classes.js assigns CLASS_DATA. The
+// profile emphasizes the traits the existing answer bank can actually distinguish: ranged
+// positioning, reliable output, low close-range comfort and low party dependence.
 (() => {
   let backing;
+  const hunterProfile = {
+    single:0.65, aoe:0.85, mobility:0.20, range:0.95, position:0.90,
+    risk:0.35, resource:0.50, economy:0.50, party:0.20, utility:0.40,
+    special:0.75, versatility:0.55, element:0.50, matchup:0.50, setup:0.55,
+    payoff:0.70, consistency:0.95, close:0.15, gear:0.55, attention:0.65
+  };
   Object.defineProperty(window, 'CLASS_DATA', {
-    configurable: true,
-    get() {
-      if (backing) {
-        const hunter = backing.hunter;
-        if (hunter?.dims && !hunter.dims.__rangedCalibrationApplied) {
-          const dims = hunter.dims;
-          for (const [dimension, factor] of [['range', 1.018], ['position', 1.018], ['consistency', 1.018]]) {
-            dims[dimension] = 0.5 + (Number(dims[dimension] ?? 0.5) - 0.5) * factor;
-          }
-          for (const [dimension, factor] of [['close', 0.90], ['mobility', 0.90], ['party', 0.90]]) {
-            dims[dimension] = 0.5 + (Number(dims[dimension] ?? 0.5) - 0.5) * factor;
-          }
-          Object.defineProperty(dims, '__rangedCalibrationApplied', {value: true, enumerable: false});
-        }
+    configurable:true,
+    get(){ return backing; },
+    set(value){
+      backing=value;
+      if (value?.hunter?.dims) {
+        const target=hunterProfile;
+        value.hunter.dims=new Proxy(target,{set(){return true;}});
       }
-      return backing;
-    },
-    set(value) { backing = value; }
+    }
   });
 })();

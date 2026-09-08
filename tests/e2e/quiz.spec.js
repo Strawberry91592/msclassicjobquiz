@@ -132,6 +132,31 @@ test('day/night, mobile layout, and header placement remain stable', async ({ pa
   expect((intro?.y ?? 0)).toBeGreaterThanOrEqual((controls?.y ?? 0) + (controls?.height ?? 0) - 1);
 });
 
+test('v2.0 info toggle opens and closes the changelog', async ({ page }) => {
+  await mockStats(page);
+  await page.goto('/index.html');
+  await expect(page.locator('#infoToggle')).toContainText('ⓘ');
+  await expect(page.locator('#infoModal')).toBeHidden();
+  await page.locator('#infoToggle').click();
+  await expect(page.locator('#infoModal')).toBeVisible();
+  await expect(page.locator('#infoModalTitle')).toHaveText('Quiz & Community Rankings');
+  await expect(page.locator('.info-modal-body')).toContainText('The previous results were collected using scoring that was not properly calibrated.');
+  await expect(page.locator('.info-modal-body')).toContainText('10,000');
+  await expect(page.locator('.info-modal-body')).toContainText('9.7%–10.3%');
+  await expect(page.locator('.info-modal-body')).toContainText('±0.3%');
+  await page.locator('#infoModalClose').click();
+  await expect(page.locator('#infoModal')).toBeHidden();
+});
+
+test('the v2.0 info icon follows the active day/night theme', async ({ page }) => {
+  await mockStats(page);
+  await page.goto('/index.html');
+  const dayColor = await page.locator('.info-toggle-icon').evaluate(element => getComputedStyle(element).color);
+  await page.locator('#themeToggle').click();
+  const nightColor = await page.locator('.info-toggle-icon').evaluate(element => getComputedStyle(element).color);
+  expect(dayColor).not.toBe(nightColor);
+});
+
 test('native share keeps the quiz title, text, and URL', async ({ page }) => {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'share', { configurable: true, value: data => { window.__sharedData = data; return Promise.resolve(); } });

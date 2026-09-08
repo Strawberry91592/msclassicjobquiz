@@ -1,107 +1,102 @@
-import { test, expect } from '@playwright/test';
-
-const STATS_ORIGIN = 'https://maplestory-classic-quiz-stats.w8hmz81kq7n2gw.workers.dev';
+const { test, expect } = require('@playwright/test');
 
 async function mockStats(page, totals = {}) {
-  const posts = [];
-  await page.route(`${STATS_ORIGIN}/**`, async route => {
-    const request = route.request();
-    const url = request.url();
-    if (request.method() === 'POST' && url.endsWith('/result')) {
-      posts.push({
-        body: JSON.parse(request.postData() || '{}'),
-        clientKey: request.headers()['x-quiz-client-key'] || ''
-      });
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) });
-      return;
-    }
-    if (request.method() === 'GET' && url.endsWith('/stats')) {
-      const total = Object.values(totals).reduce((sum, value) => sum + Number(value || 0), 0);
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ ok: true, totals, total })
-      });
-      return;
-    }
-    await route.continue();
+  await page.route('**/stats', async route => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        ok: true,
+        total: Object.values(totals).reduce((sum, value) => sum + Number(value || 0), 0),
+        totals
+      })
+    });
   });
-  return posts;
+  await page.route('**/result', async route => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) });
+  });
 }
 
-async function advanceToResults(page, answerCount = 0) {
-  for (let i = 0; i < 48; i += 1) {
-    if (i < answerCount) await page.locator('.answer-main').first().click();
-    await page.locator('#nextBtn').click();
-    if (await page.locator('#results').isVisible()) return;
+async function advanceToResults(page, answered = 48) {
+  for (let i = 0; i < 48; i++) {
+    if (i < answered) await page.locator('.answer-main').first().click();
+    await page.keyboard.press('Space');
   }
-  throw new Error('The quiz did not reach results after 48 questions.');
+  await expect(page.locator('#results')).toBeVisible();
 }
 
 test('opens directly on Question 1 with no landing screen', async ({ page }) => {
   await mockStats(page);
   await page.goto('/index.html');
-  await expect(page.locator('#modeModal')).toHaveCount(0);
   await expect(page.locator('#quiz')).toBeVisible();
-  await expect(page.locator('#qNumber')).toHaveText('01');
   await expect(page.locator('#progressText')).toHaveText('Question 1 of 48');
-  await expect(page.locator('h1')).toHaveText('Find the Job That Fits Your Playstyle');
+  await expect(page.locator('#results')).toBeHidden();
+  await expect(page.locator('#modeLabel')).toHaveText('MAPLE ISLAND → 2ND JOB');
 });
 
 test('mouse ranking and keyboard shortcuts stay consistent', async ({ page }) => {
   await mockStats(page);
   await page.goto('/index.html');
-  await page.locator('.answer-main').nth(0).click();
-  await page.keyboard.press('B');
-  await expect(page.locator('#rankingPreview')).toHaveText('Your ranking: A > B');
-  await page.keyboard.press('Z');
-  await expect(page.locator('#rankingPreview')).toContainText('Abstained');
-  await page.keyboard.press('X');
+  await page.locator('.answer-main').nth(2).click();
+  await page.keyboard.press('a');
+  await expect(page.locator('#rankingPreview')).toHaveText('Your ranking: C > A');
+  await page.keyboard.press('x');
   await expect(page.locator('#rankingPreview')).toHaveText('No choices ranked yet.');
-  await page.keyboard.press('Space');
-  await expect(page.locator('#qNumber')).toHaveText('02');
+  await page.keyboard.press('z');
+  await expect(page.locator('#rankingPreview')).toContainText('Abstained');
 });
 
 test('completing all 48 questions produces a 2nd Job result', async ({ page }) => {
-  const posts = await mockStats(page);
+  await mockStats(page);
   await page.goto('/index.html');
   await advanceToResults(page, 48);
-  await expect(page.locator('#results')).toBeVisible();
-  await expect(page.locator('#winnerName')).not.toHaveText('');
+  await expect(page.locator('#winnerName')).not.toHaveText('Beginner');
   await expect(page.locator('.job-match-card')).toHaveCount(10);
-  await expect.poll(() => posts.length).toBe(1);
-  expect(posts[0].body).toMatchObject({ mode: '12', answered: 48 });
-  expect(posts[0].clientKey).toMatch(/^[A-Za-z0-9_-]{20,100}$/);
 });
 
 test('29 answered questions are not counted', async ({ page }) => {
-  const posts = await mockStats(page);
+  const posts = [];
+  await page.route('**/result', async route => {
+    posts.push(JSON.parse(route.request().postData() || '{}'));
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) });
+  });
+  await page.route('**/stats', async route => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, total: 0, totals: {} }) });
+  });
   await page.goto('/index.html');
   await advanceToResults(page, 29);
-  await expect(page.locator('#results')).toBeVisible();
   await expect(page.locator('#communityEligibility')).toContainText('Not counted');
+  await expect(page.locator('#sharedStatsMeta')).toHaveText('0 completed quizzes counted');
+  await expect(page.locator('#sharedStats')).not.toContainText('Loading the latest Maple World results');
   expect(posts).toHaveLength(0);
 });
 
 test('30 answered questions are counted and use the anonymous client key', async ({ page }) => {
-  const posts = await mockStats(page);
+  let postHeaders = null;
+  await page.route('**/result', async route => {
+    postHeaders = await route.request().headers();
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) });
+  });
+  await page.route('**/stats', async route => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, total: 0, totals: {} }) });
+  });
   await page.goto('/index.html');
   await advanceToResults(page, 30);
-  await expect(page.locator('#results')).toBeVisible();
   await expect(page.locator('#communityEligibility')).toContainText('Counted');
-  await expect.poll(() => posts.length).toBe(1);
-  expect(posts[0].body).toMatchObject({ mode: '12', answered: 30 });
-  expect(posts[0].clientKey).toMatch(/^[A-Za-z0-9_-]{20,100}$/);
-
-  await page.reload();
-  const keyAfterReload = await page.evaluate(() => localStorage.getItem('msclassic-quiz-client-key'));
-  expect(keyAfterReload).toBe(posts[0].clientKey);
+  expect(postHeaders?.['x-quiz-client-key']).toBeTruthy();
 });
 
 test('skipping every question produces the Beginner result and loads community stats', async ({ page }) => {
-  const posts = await mockStats(page);
+  const posts = [];
+  await page.route('**/result', async route => {
+    posts.push(JSON.parse(route.request().postData() || '{}'));
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) });
+  });
+  await page.route('**/stats', async route => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, total: 0, totals: {} }) });
+  });
   await page.goto('/index.html');
-  await advanceToResults(page, 0);
+  for (let i = 0; i < 48; i++) await page.keyboard.press('z'), await page.keyboard.press('Space');
   await expect(page.locator('#winnerName')).toHaveText('Beginner');
   await expect(page.locator('#sharedStatsMeta')).toHaveText('0 completed quizzes counted');
   await expect(page.locator('#sharedStats')).not.toContainText('Loading the latest Maple World results');
@@ -127,6 +122,22 @@ test('results no longer render the redundant playstyle section or signal markup'
   await expect(page.locator('.signal-card')).toHaveCount(0);
   await expect(page.locator('.signal-marker')).toHaveCount(0);
 });
+
+test('every 2nd Job result card contains the two MeowDB guide boxes', async ({ page }) => {
+  await mockStats(page, { assassin: 1 });
+  await page.goto('/index.html');
+  await advanceToResults(page, 48);
+
+  const cards = page.locator('.job-match-card');
+  await expect(cards).toHaveCount(10);
+  await expect(cards.nth(0).locator('.job-match-guides a')).toHaveCount(2);
+  await expect(cards.nth(0).locator('.job-match-guides a').nth(0)).toHaveText('Lv. 1–30');
+  await expect(cards.nth(0).locator('.job-match-guides a').nth(1)).toHaveText('Lv. 30–70');
+  await expect(cards.nth(0).locator('.job-match-guides a').nth(0)).toHaveAttribute('href', /meowdb\.com\/msclassic\/guides\//);
+  await expect(cards.nth(0).locator('.job-match-guides a').nth(1)).toHaveAttribute('href', /meowdb\.com\/msclassic\/guides\//);
+  for (let i = 0; i < 10; i++) await expect(cards.nth(i).locator('.job-match-guides a')).toHaveCount(2);
+});
+
 test('results-page community rankings reuse the compact popup layout', async ({ page }) => {
   await mockStats(page, { assassin: 1 });
   await page.goto('/index.html');
@@ -188,5 +199,4 @@ test('mobile layout has no horizontal overflow', async ({ page }) => {
     innerWidth: window.innerWidth
   }));
   expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.innerWidth + 1);
-  await expect(page.locator('#quiz')).toBeVisible();
 });

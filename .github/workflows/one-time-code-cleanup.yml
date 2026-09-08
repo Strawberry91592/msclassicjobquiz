@@ -23,7 +23,7 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import re
+          import json
 
           def read(path):
               return Path(path).read_text(encoding='utf-8')
@@ -31,118 +31,125 @@ jobs:
           def write(path, text):
               Path(path).write_text(text, encoding='utf-8')
 
-          def remove_between(text, start_marker, end_marker, include_end=False):
+          def remove_once(text, start_marker, end_marker):
               start = text.find(start_marker)
               if start < 0:
-                  raise SystemExit(f'Expected start marker not found: {start_marker!r}')
+                  raise SystemExit(f'Start marker not found: {start_marker!r}')
               end = text.find(end_marker, start)
               if end < 0:
-                  raise SystemExit(f'Expected end marker not found: {end_marker!r}')
-              end += len(end_marker) if include_end else 0
+                  raise SystemExit(f'End marker not found: {end_marker!r}')
               return text[:start] + text[end:]
 
           def remove_css_rule(text, selector):
-              start = text.find(selector + '{')
+              marker = selector + '{'
+              start = text.find(marker)
               if start < 0:
-                  raise SystemExit(f'Expected CSS selector not found: {selector!r}')
-              brace = text.find('{', start)
+                  raise SystemExit(f'CSS selector not found: {selector!r}')
+              brace = start + len(selector)
               depth = 0
+              end = None
               for i in range(brace, len(text)):
                   if text[i] == '{':
                       depth += 1
                   elif text[i] == '}':
                       depth -= 1
                       if depth == 0:
-                          return text[:start] + text[i + 1:]
-              raise SystemExit(f'Unbalanced CSS rule: {selector!r}')
+                          end = i + 1
+                          break
+              if end is None:
+                  raise SystemExit(f'Unbalanced CSS rule: {selector!r}')
+              return text[:start] + text[end:]
 
-          # index.html
+          # Remove the redundant Road section from the actual HTML.
           path = 'index.html'
           text = read(path)
           road_start = '        <section class="panel detail-panel">\n          <div class="panel-head"><div><h3>Your Road Through Maple World</h3>'
-          road_end = '        </section>'
-          text = remove_between(text, road_start, road_end, include_end=True)
+          text = remove_once(text, road_start, '        </section>')
           text = text.replace('\n  <script src="beginner-stats-fix.js"></script>', '')
           write(path, text)
 
-          # app.js
+          # Remove now-dead references from the application and make the Beginner path
+          # use the same active stats loader as normal results.
           path = 'app.js'
           text = read(path)
-          obsolete = "    hide($('modeModal'));\n"
-          if obsolete not in text:
-              raise SystemExit('Obsolete modeModal line was not found in app.js')
-          text = text.replace(obsolete, '', 1)
-
-          progression_start = "    $('progressionFit').innerHTML = `"
-          progression_end = '    const alternatives ='
-          text = remove_between(text, progression_start, progression_end, include_end=False)
-          alternatives_start = '    const alternatives ='
-          stats_start = '    renderSharedStats();'
-          text = remove_between(text, alternatives_start, stats_start, include_end=False)
-          old_stats = "    renderSharedStats();\n    hide($('quiz')); show($('results'));"
-          new_stats = "    refreshSharedStats();\n    hide($('quiz')); show($('results'));"
-          if old_stats not in text:
-              raise SystemExit('Beginner stats call site was not found in app.js')
-          text = text.replace(old_stats, new_stats, 1)
+          text = text.replace("    hide($('modeModal'));\n", '', 1)
+          text = remove_once(text, "    $('progressionFit').innerHTML = `", '    const alternatives =')
+          text = remove_once(text, '    const alternatives =', '    renderSharedStats();')
+          old = "    renderSharedStats();\n    hide($('quiz')); show($('results'));"
+          new = "    refreshSharedStats();\n    hide($('quiz')); show($('results'));"
+          if old not in text:
+              raise SystemExit('Beginner stats call site not found in app.js')
+          text = text.replace(old, new, 1)
           write(path, text)
 
-          # classes.js
+          # Remove progression metadata that has no remaining consumer.
           path = 'classes.js'
-          text = read(path)
-          text, count = re.subn(r',"road":\{"early":"[^"]*","second":"[^"]*"\}', '', text)
-          if count != 10:
-              raise SystemExit(f'Expected 10 road metadata blocks in classes.js, removed {count}')
-          write(path, text)
+          obj = json.loads(read(path).split('window.CLASS_DATA = ', 1)[1].split(';\nwindow.QUIZ_DIMS', 1)[0])
+          if len(obj) != 10 or not all('road' in cls for cls in obj.values()):
+              raise SystemExit('Expected exactly 10 class road metadata blocks')
+          for cls in obj.values():
+              del cls['road']
+          prefix = '/* MapleStory Classic World • Job 1-2 class profiles and quiz scoring model.\n   Profiles are grounded in current NiaMeowDB Job 1-2 data. Third-job mechanics are excluded. */\n'
+          original = read(path)
+          suffix = original.split(';\nwindow.QUIZ_DIMS', 1)[1]
+          write(path, prefix + 'window.CLASS_DATA = ' + json.dumps(obj, separators=(',', ':'), ensure_ascii=False) + ';\nwindow.QUIZ_DIMS' + suffix)
 
-          # styles.css: the old landing-modal rules form one contiguous block from
-          # .modal-backdrop through .modal-note. Remove it as actual dead CSS.
+          # The opening-community enhancement is already absent on the current tree. Do not
+          # manufacture unrelated edits if that dead block is already gone.
+          path = 'project-enhancements.js'
+          if any(token in read(path) for token in ('openingCommunity', 'ensureOpeningPanel', 'JOB_ORDER')):
+              raise SystemExit('Unexpected stale opening-community enhancement code remains')
+
+          # Remove old modal CSS and progression CSS. These selectors have no remaining DOM users.
           path = 'styles.css'
           text = read(path)
           start = text.find('.modal-backdrop{')
           note = text.find('.modal-note{', start)
           if start < 0 or note < 0:
-              raise SystemExit('Obsolete modal CSS block was not found')
+              raise SystemExit('Obsolete modal CSS block not found')
           end = text.find('}', note)
           if end < 0:
               raise SystemExit('Malformed modal CSS block')
           text = text[:start] + text[end + 1:]
-
-          for old, new in [
-              ('.eyebrow,.mode-kicker,.section-label{', '.eyebrow,.section-label{'),
-              ('.detail-list,.progression-grid,.shared-stats{', '.detail-list,.shared-stats{'),
-              ('.detail-item,.stage,.stats-row,.community-eligibility{', '.detail-item,.stats-row,.community-eligibility{'),
-              ('.intro-cards,.result-grid-top,.progression-grid{', '.intro-cards,.result-grid-top{'),
-              ('body.night-mode .stage h4,', ''),
-              (',body.night-mode .stage p{', '{'),
-              ('body.night-mode .mode-card,', ''),
-          ]:
-              text = text.replace(old, new)
-
+          text = text.replace('.eyebrow,.mode-kicker,.section-label{', '.eyebrow,.section-label{')
+          text = text.replace('.detail-list,.progression-grid,.shared-stats{', '.detail-list,.shared-stats{')
+          text = text.replace('.detail-item,.stage,.stats-row,.community-eligibility{', '.detail-item,.stats-row,.community-eligibility{')
+          text = text.replace('.intro-cards,.result-grid-top,.progression-grid{', '.intro-cards,.result-grid-top{')
+          text = text.replace('body.night-mode .stage h4,', '')
+          text = text.replace(',body.night-mode .stage p{', '{')
+          text = text.replace('body.night-mode .mode-card,', '')
           for selector in ('.progression-grid', '.stage h4', '.stage p'):
               text = remove_css_rule(text, selector)
           write(path, text)
 
-          # tests/e2e: lock the removal in with a regression test.
+          # Add a regression test for the actual absence of the removed section.
           path = 'tests/e2e/quiz.spec.js'
           text = read(path)
           if 'results omit the redundant progression section' not in text:
               marker = "test('results-page community rankings reuse the compact popup layout', async ({ page }) => {"
               if marker not in text:
-                  raise SystemExit('Expected E2E insertion point was not found')
-              test_block = """test('results omit the redundant progression section', async ({ page }) => {\n  await mockStats(page, { assassin: 1 });\n  await page.goto('/index.html');\n  await advanceToResults(page, 30);\n  await expect(page.locator('#results')).toBeVisible();\n  await expect(page.locator('#progressionFit')).toHaveCount(0);\n  await expect(page.locator('.stage')).toHaveCount(0);\n});\n\n"""
-              text = text.replace(marker, test_block + marker, 1)
+                  raise SystemExit('Expected community-layout test marker not found')
+              regression = """test('results omit the redundant progression section', async ({ page }) => {\n  await mockStats(page, { assassin: 1 });\n  await page.goto('/index.html');\n  await advanceToResults(page, 30);\n  await expect(page.locator('#results')).toBeVisible();\n  await expect(page.locator('#progressionFit')).toHaveCount(0);\n  await expect(page.locator('.stage')).toHaveCount(0);\n});\n\n"""
+              text = text.replace(marker, regression + marker, 1)
           write(path, text)
 
-          Path('beginner-stats-fix.js').unlink(missing_ok=True)
+          # Delete the temporary workflow itself. The cleanup commit leaves the repository
+          # in the desired permanent state without this helper.
+          Path('.github/workflows/one-time-code-cleanup.yml').unlink()
 
-          forbidden = {
+          checks = {
               'index.html': ['Your Road Through Maple World', 'progressionFit', 'beginner-stats-fix.js'],
               'app.js': ['progressionFit', "hide($('modeModal'))", "const alternatives = $('alternatives')"],
               'classes.js': ['"road"'],
               'project-enhancements.js': ['openingCommunity', 'ensureOpeningPanel', 'JOB_ORDER'],
               'styles.css': ['.progression-grid', '.stage', '.modal-backdrop', '.mode-modal', '.mode-card', '.mode-kicker'],
+              '.github/workflows/one-time-code-cleanup.yml': [],
           }
-          for file, needles in forbidden.items():
+          for file, needles in checks.items():
+              if not Path(file).exists():
+                  if needles:
+                      raise SystemExit(f'Expected file is missing: {file}')
+                  continue
               source = read(file)
               for needle in needles:
                   if needle in source:
@@ -157,6 +164,6 @@ jobs:
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add index.html app.js classes.js styles.css tests/e2e/quiz.spec.js beginner-stats-fix.js .github/workflows/one-time-code-cleanup.yml
+          git add -A
           git commit -m 'Remove redundant progression and dead result code'
           git push

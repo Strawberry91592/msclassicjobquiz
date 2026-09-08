@@ -29,15 +29,39 @@
   const themeToggle = document.getElementById('themeToggle');
   if (!wrap || !themeToggle || document.getElementById('communityToggle')) return;
 
-  const mapleMark = document.querySelector('.maple-mark');
-  if (mapleMark) {
-    mapleMark.innerHTML = `
-      <svg class="maple-leaf-mark" viewBox="0 0 100 100" role="presentation" aria-hidden="true">
-        <path class="maple-leaf-outline" d="M50 12 L56 34 L72 28 L66 43 L84 50 L67 57 L71 74 L55 68 L50 91 L45 68 L29 74 L33 57 L16 50 L34 43 L28 28 L44 34 Z"/>
-        <path class="maple-leaf-fill" d="M50 17 L55 39 L70 33 L63 47 L78 52 L62 59 L66 68 L53 63 L50 84 L47 63 L34 68 L37 58 L22 52 L37 46 L31 33 L45 39 Z"/>
-        <path class="maple-leaf-highlight" d="M48 21 L51 39 L43 42 L36 36 L42 46 L54 53 L59 47 L54 40 Z"/>
-        <path class="maple-leaf-stem" d="M48 63 L51 64 L54 90 L49 90 Z"/>
-      </svg>`;
+  const modal = document.getElementById('modeModal');
+  const modePanel = modal?.querySelector('.mode-modal');
+  const titlebarText = modal?.querySelector('.maple-titlebar .bar-text');
+  const kicker = modal?.querySelector('.mode-kicker');
+  const title = document.getElementById('modeTitle');
+  const intro = modal?.querySelector('.mode-intro');
+  const primaryCard = modal?.querySelector('.mode-card[data-mode="12"]');
+  const lockedCard = modal?.querySelector('.mode-card-locked');
+  const modalNote = modal?.querySelector('.modal-note');
+
+  if (modal && modePanel) {
+    modal.classList.remove('modal-backdrop');
+    modal.classList.add('landing-start');
+    modePanel.classList.remove('mode-modal');
+    modePanel.classList.add('landing-panel');
+    lockedCard?.remove();
+    modalNote?.remove();
+    document.getElementById('openingCommunity')?.remove();
+    if (titlebarText) titlebarText.textContent = 'MAPLESTORY CLASSIC WORLD';
+    if (kicker) kicker.textContent = '2ND JOB QUIZ';
+    if (title) title.textContent = 'Find the 2nd Job that fits the way you play.';
+    if (intro) intro.textContent = 'Rank the answers you prefer, and we’ll match your playstyle to one of the 10 current 2nd Jobs.';
+    if (primaryCard) {
+      primaryCard.classList.add('landing-quiz-card');
+      const number = primaryCard.querySelector('.mode-number');
+      const strong = primaryCard.querySelector('strong');
+      const description = primaryCard.querySelector('span:not(.mode-number)');
+      const foot = primaryCard.querySelector('.mode-card-foot');
+      if (number) number.textContent = 'MAPLE ISLAND → 2ND JOB';
+      if (strong) strong.textContent = 'Start your adventure';
+      if (description) description.textContent = '48 questions about how you like to fight, move, train, manage resources, and approach different situations in Maple World.';
+      if (foot) foot.textContent = 'Start the quiz';
+    }
   }
 
   const toggle = document.createElement('button');
@@ -51,14 +75,14 @@
   toggle.innerHTML = '<span class="community-toggle-icon" aria-hidden="true">🏆</span><span>Rankings</span>';
   wrap.insertBefore(toggle, themeToggle);
 
-  const modal = document.createElement('section');
-  modal.id = 'communityRankingsModal';
-  modal.className = 'community-ranking-modal';
-  modal.setAttribute('aria-modal','true');
-  modal.setAttribute('role','dialog');
-  modal.setAttribute('aria-labelledby','communityRankingsTitle');
-  modal.hidden = true;
-  modal.innerHTML = `
+  const rankingModal = document.createElement('section');
+  rankingModal.id = 'communityRankingsModal';
+  rankingModal.className = 'community-ranking-modal';
+  rankingModal.setAttribute('aria-modal','true');
+  rankingModal.setAttribute('role','dialog');
+  rankingModal.setAttribute('aria-labelledby','communityRankingsTitle');
+  rankingModal.hidden = true;
+  rankingModal.innerHTML = `
     <div class="community-rankings-dialog panel">
       <div class="community-rankings-titlebar">
         <div class="community-rankings-titlebar-left">
@@ -84,11 +108,11 @@
         <div class="community-rankings-footnote">Updates automatically while this window is open. New submissions may take a short time to appear in the analytics totals.</div>
       </div>
     </div>`;
-  document.body.appendChild(modal);
+  document.body.appendChild(rankingModal);
 
   const statsPanel = document.getElementById('communityRankingsStats');
   const updatedLabel = document.getElementById('communityUpdated');
-  const closeBtn = modal.querySelector('.community-close-btn');
+  const closeBtn = rankingModal.querySelector('.community-close-btn');
   const nativeFetch = window.fetch.bind(window);
   let pollTimer = null;
   let refreshInFlight = false;
@@ -99,27 +123,27 @@
     .community-toggle{min-width:0}
     .community-toggle-icon{font-size:.9em;line-height:1;display:inline-flex;align-items:center}
 
-    /* MapleStory-style leaf mark: warm red/orange leaf, adapted to each theme. */
-    .maple-mark{
-      background:linear-gradient(180deg,#ffffff,#edf5fb)!important;
-      border:1px solid #abc5d9!important;
-      box-shadow:0 4px 0 #c3d5e2,0 8px 18px rgba(53,95,121,.12)!important;
-      color:#e94b32;
+    .landing-start{position:static;z-index:auto;padding:0;background:transparent;overflow:visible}
+    .landing-start .landing-panel{width:min(820px,100%);margin:clamp(34px,7vh,78px) auto 0;overflow:hidden;background:rgba(255,255,255,.97);border:1px solid var(--line,#d6e4ed);border-radius:15px;box-shadow:0 10px 26px rgba(53,95,121,.1)}
+    .landing-start .mode-content{padding:clamp(24px,4vw,38px)}
+    .landing-start .mode-grid{display:block;margin-top:24px}
+    .landing-start .landing-quiz-card{width:100%;cursor:pointer;padding:22px 22px 19px}
+    .landing-start .landing-quiz-card:hover{transform:translateY(-2px)}
+    .landing-start .landing-quiz-card strong{font-size:clamp(22px,2.6vw,30px)}
+    .landing-start .landing-quiz-card>span:not(.mode-number){max-width:680px;font-size:14px}
+    body.night-mode .landing-start .landing-panel{background:#1b2a3d;border-color:#344b60;box-shadow:0 10px 28px rgba(0,0,0,.22)}
+    body.night-mode .landing-start .landing-quiz-card{background:linear-gradient(180deg,#213449,#1d2f42);border-color:#486078;box-shadow:0 4px 0 #162536,0 10px 18px rgba(0,0,0,.14)}
+    body.night-mode .landing-start .mode-intro{color:#8ea2b1}
+    @media(max-width:650px){
+      .landing-start .landing-panel{margin-top:24px}
+      .landing-start .mode-content{padding:20px}
     }
-    .maple-mark .maple-leaf-mark{width:38px;height:38px;display:block;overflow:visible}
-    .maple-mark .maple-leaf-outline{fill:#85352b}
-    .maple-mark .maple-leaf-fill{fill:#e94b32}
-    .maple-mark .maple-leaf-highlight{fill:#ff7657;opacity:.92}
-    .maple-mark .maple-leaf-stem{fill:#b63729}
-    body.night-mode .maple-mark{
-      background:linear-gradient(180deg,#253c55,#1a2d42)!important;
-      border-color:#456078!important;
-      box-shadow:0 4px 0 #152538,0 8px 18px rgba(4,12,22,.28)!important;
-    }
-    body.night-mode .maple-mark .maple-leaf-outline{fill:#6f2d27}
-    body.night-mode .maple-mark .maple-leaf-fill{fill:#f05a3d}
-    body.night-mode .maple-mark .maple-leaf-highlight{fill:#ff8568}
-    body.night-mode .maple-mark .maple-leaf-stem{fill:#c64031}
+
+    .maple-mark{background:transparent!important;border:0!important;box-shadow:none!important;color:transparent!important;position:relative;overflow:visible}
+    .maple-mark::before{content:"";position:absolute;inset:0;border-radius:16px;background:url("maplestory-leaf-icon.png") center/100% 100% no-repeat;filter:drop-shadow(0 6px 10px rgba(31,52,72,.16))}
+    .maple-mark>svg{display:none!important}
+    body.night-mode .maple-mark::before{filter:drop-shadow(0 7px 12px rgba(0,0,0,.28))}
+    @media(max-width:650px){.maple-mark::before{border-radius:15px}}
 
     .community-ranking-modal{position:fixed;inset:0;z-index:20;padding:20px;background:rgba(20,34,50,.58);overflow:auto}
     .community-rankings-dialog{width:min(960px,100%);margin:8vh auto 4vh;overflow:hidden;background:rgba(255,255,255,.98)}
@@ -240,7 +264,7 @@
     refreshStats();
     if (pollTimer) clearInterval(pollTimer);
     pollTimer = setInterval(() => {
-      if (!modal.hidden && document.visibilityState === 'visible') refreshStats();
+      if (!rankingModal.hidden && document.visibilityState === 'visible') refreshStats();
     }, 5000);
   }
 
@@ -250,7 +274,7 @@
   }
 
   function openModal() {
-    modal.hidden = false;
+    rankingModal.hidden = false;
     toggle.setAttribute('aria-expanded','true');
     document.body.classList.add('community-modal-open');
     startPolling();
@@ -258,7 +282,7 @@
   }
 
   function closeModal() {
-    modal.hidden = true;
+    rankingModal.hidden = true;
     toggle.setAttribute('aria-expanded','false');
     document.body.classList.remove('community-modal-open');
     stopPolling();
@@ -266,14 +290,14 @@
   }
 
   toggle.addEventListener('click', () => {
-    if (modal.hidden) openModal();
+    if (rankingModal.hidden) openModal();
     else closeModal();
   });
   closeBtn?.addEventListener('click', closeModal);
-  modal.addEventListener('click', event => {
-    if (event.target === modal) closeModal();
+  rankingModal.addEventListener('click', event => {
+    if (event.target === rankingModal) closeModal();
   });
   document.addEventListener('keydown', event => {
-    if (event.key === 'Escape' && !modal.hidden) closeModal();
+    if (event.key === 'Escape' && !rankingModal.hidden) closeModal();
   });
 })();

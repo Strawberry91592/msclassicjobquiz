@@ -14,14 +14,27 @@ window.QUIZ_DIM_WEIGHTS = {"single":1.2,"aoe":1.15,"mobility":1.0,"range":1.1,"p
     const values = classEntries.map(cls => Number(cls.dims?.[dimension] ?? 0.5));
     const min = Math.min(...values);
     const max = Math.max(...values);
-    if (!(max > min)) {
-      classEntries.forEach(cls => { cls.dims[dimension] = 0.5; });
-      continue;
-    }
+    if (!(max > min)) { classEntries.forEach(cls => { cls.dims[dimension] = 0.5; }); continue; }
     const span = max - min;
-    classEntries.forEach(cls => {
-      const value = Number(cls.dims[dimension] ?? 0.5);
-      cls.dims[dimension] = 0.15 + ((value - min) / span) * 0.70;
-    });
+    classEntries.forEach(cls => { const value = Number(cls.dims[dimension] ?? 0.5); cls.dims[dimension] = 0.15 + ((value - min) / span) * 0.70; });
   }
+})();
+
+// Remove prototype-radius priors while preserving each job's directional signature.
+// The runtime scorer is weighted Manhattan distance, so equalizing the weighted L1 radius
+// around neutral prevents a profile with more extreme dimensions from winning neutral users.
+(() => {
+  const classes = Object.values(window.CLASS_DATA || {});
+  const dimensions = Object.keys(window.QUIZ_DIMS || {});
+  const weights = window.QUIZ_DIM_WEIGHTS || {};
+  const radius = cls => dimensions.reduce((sum, dim) => sum + Number(weights[dim] ?? 1) * Math.abs(Number(cls.dims?.[dim] ?? 0.5) - 0.5), 0);
+  const radii = classes.map(radius).filter(value => Number.isFinite(value) && value > 0).sort((a,b) => a-b);
+  if (!radii.length) return;
+  const target = radii[Math.floor(radii.length / 2)];
+  classes.forEach(cls => {
+    const current = radius(cls);
+    if (!(current > 0)) return;
+    const scale = target / current;
+    dimensions.forEach(dim => { cls.dims[dim] = 0.5 + (Number(cls.dims[dim] ?? 0.5) - 0.5) * scale; });
+  });
 })();

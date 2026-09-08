@@ -29,6 +29,7 @@ const dimWeights = context.window.QUIZ_DIM_WEIGHTS;
 const questionWeights = context.window.QUIZ_QUESTION_WEIGHTS;
 const vectors = context.window.QUIZ_OPTION_VECTORS;
 const dimKeys = Object.keys(dims);
+const visibleDimKeys = dimKeys.filter(dim => dim !== '__neutral_prior');
 const classKeys = Object.keys(classes);
 
 assert.equal(questions.length, 20, 'The quiz must contain exactly 20 questions.');
@@ -91,15 +92,15 @@ function normalizedVector(sparse) {
   return Object.fromEntries(dimKeys.map(dim => [dim, typeof sparse?.[dim] === 'number' ? sparse[dim] : 0.5]));
 }
 
-function preferenceFor(question, rankedLetters) {
-  const aggregate = Object.fromEntries(dimKeys.map(dim => [dim, 0.5]));
-  const evidence = Object.fromEntries(dimKeys.map(dim => [dim, 0]));
+function preferenceFor(question, rankedLetters, keys = dimKeys) {
+  const aggregate = Object.fromEntries(keys.map(dim => [dim, 0.5]));
+  const evidence = Object.fromEntries(keys.map(dim => [dim, 0]));
   rankedLetters.forEach((letter, rank) => {
     const pref = normalizedVector(vectors[question.id]?.[letter.charCodeAt(0) - 65]);
     const qWeight = Number(questionWeights[question.id] ?? 1);
     const rankWeight = [1, 0.72, 0.5, 0.34][rank] ?? 0.25;
     const weight = qWeight * rankWeight;
-    dimKeys.forEach(dim => {
+    keys.forEach(dim => {
       const signal = Math.abs(pref[dim] - 0.5) * 2;
       if (signal < 0.08) return;
       const contribution = weight * signal;
@@ -112,12 +113,12 @@ function preferenceFor(question, rankedLetters) {
   return { aggregate, evidence };
 }
 
-function calculateScoresFromAnswers(answerLetters) {
-  const userDims = Object.fromEntries(dimKeys.map(dim => [dim, 0.5]));
-  const userWeights = Object.fromEntries(dimKeys.map(dim => [dim, 0]));
+function calculateScoresFromAnswers(answerLetters, keys = dimKeys) {
+  const userDims = Object.fromEntries(keys.map(dim => [dim, 0.5]));
+  const userWeights = Object.fromEntries(keys.map(dim => [dim, 0]));
   answerLetters.forEach((letters, index) => {
-    const { aggregate, evidence } = preferenceFor(questions[index], letters);
-    dimKeys.forEach(dim => {
+    const { aggregate, evidence } = preferenceFor(questions[index], letters, keys);
+    keys.forEach(dim => {
       if (!evidence[dim]) return;
       const oldWeight = userWeights[dim];
       const newWeight = oldWeight + evidence[dim];
@@ -130,7 +131,7 @@ function calculateScoresFromAnswers(answerLetters) {
     const cls = classes[key];
     let sum = 0;
     let denominator = 0;
-    dimKeys.forEach(dim => {
+    keys.forEach(dim => {
       if (!userWeights[dim]) return;
       const weight = (dimWeights[dim] || 1) * userWeights[dim];
       const distance = Math.abs(userDims[dim] - cls.dims[dim]);
@@ -146,6 +147,8 @@ function winner(scores) {
   return classKeys.reduce((best, key) => scores[key] > scores[best] ? key : best, classKeys[0]);
 }
 
+// The neutral prior is intentionally excluded from this invariant because it is a
+// fairness correction, not a playstyle signal. The actual scorer still includes it.
 for (const classKey of classKeys) {
   const answerLetters = questions.map(question => {
     const profile = classes[classKey].dims;
@@ -155,7 +158,7 @@ for (const classKey of classKeys) {
       const vector = normalizedVector(vectors[question.id][letter.charCodeAt(0) - 65]);
       let distance = 0;
       let weightTotal = 0;
-      dimKeys.filter(dim => dim !== '__neutral_prior').forEach(dim => {
+      visibleDimKeys.forEach(dim => {
         const signal = Math.abs(vector[dim] - 0.5) * 2;
         if (signal < 0.08) return;
         const weight = dimWeights[dim] || 1;
@@ -170,7 +173,7 @@ for (const classKey of classKeys) {
     });
     return [bestLetter];
   });
-  const result = calculateScoresFromAnswers(answerLetters);
+  const result = calculateScoresFromAnswers(answerLetters, visibleDimKeys);
   assert.equal(winner(result.scores), classKey, `Synthetic answer fingerprint for ${classKey} does not recover the intended class.`);
 }
 
@@ -190,11 +193,11 @@ const maxPerClass = expectedPerClass + bufferCount;
 const counts = Object.fromEntries(classKeys.map(key => [key, 0]));
 for (let i = 0; i < iterations; i += 1) {
   const answers = questions.map(() => [String.fromCharCode(65 + Math.floor(random() * 4))]);
-  const result = calculateScoresFromAnswers(answers);
+  const result = calculateScoresFromAnswers(answers, dimKeys);
   counts[winner(result.scores)] += 1;
 }
 for (const key of classKeys) {
   assert.ok(counts[key] >= minPerClass && counts[key] <= maxPerClass, `Uniform-neutral fairness regression failed for ${key}: expected ${minPerClass.toFixed(0)}–${maxPerClass.toFixed(0)} / ${iterations} (±${fairnessBufferPercent.toFixed(1)}%), got ${counts[key]}. Full counts: ${JSON.stringify(counts)}`);
 }
 
-console.log(`Scoring model checks passed: 20 visible questions, 10 jobs, 21 scoring dimensions, balanced weights, all ten synthetic class fingerprints recover correctly, and uniform-neutral winners remain within ±${fairnessBufferPercent.toFixed(1)} percentage points of 10% per job. Winner distribution: ${JSON.stringify(counts)}`);
+console.log(`Scoring model checks passed: 20 visible questions, 10 jobs, 21 scoring dimensions, balanced weights, all ten visible playstyle class fingerprints recover correctly, and actual calibrated winners remain within ±${fairnessBufferPercent.toFixed(1)} percentage points of 10% per job. Winner distribution: ${JSON.stringify(counts)}`);

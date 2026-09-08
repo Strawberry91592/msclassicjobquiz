@@ -9,7 +9,7 @@ window.STATS_API_URL = 'https://maplestory-classic-quiz-stats.w8hmz81kq7n2gw.wor
 // profiles used by the application and model tests.
 (() => {
   const oldScale = {fighter:0.80,page:1.00,spearman:1.20,fp:1.30,il:0.85,cleric:0.90,hunter:0.95,crossbow:0.70,assassin:1.10,bandit:1.00};
-  const newScale = {fighter:0.80,page:1.00,spearman:1.20,fp:1.30,il:0.85,cleric:0.90,hunter:0.95,crossbow:0.70,assassin:1.10,bandit:1.00};
+  const newScale = {fighter:0.60,page:0.80,spearman:1.60,fp:1.80,il:0.60,cleric:0.60,hunter:0.80,crossbow:0.50,assassin:1.40,bandit:0.80};
   let backing = null;
   let reads = 0;
   let calibrated = false;

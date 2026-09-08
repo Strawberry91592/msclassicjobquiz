@@ -123,7 +123,6 @@
     });
   }
 
-
   // Analytics Engine writes are non-blocking. A just-accepted submission can be
   // temporarily absent from the read path, so retry an immediately-empty GET.
   const nativeFetch=window.fetch.bind(window);
@@ -167,7 +166,6 @@
 
   function init(){
     addGuideLinks();
-    simplifySignalCards();
     const leaderboard=document.getElementById('leaderboard');
     if(leaderboard)new MutationObserver(addGuideLinks).observe(leaderboard,{childList:true,subtree:true});
   }

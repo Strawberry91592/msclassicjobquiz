@@ -108,6 +108,15 @@ test('skipping every question produces the Beginner result and loads community s
   expect(posts).toHaveLength(0);
 });
 
+test('results omit the redundant progression section', async ({ page }) => {
+  await mockStats(page, { assassin: 1 });
+  await page.goto('/index.html');
+  await advanceToResults(page, 30);
+  await expect(page.locator('#results')).toBeVisible();
+  await expect(page.locator('#progressionFit')).toHaveCount(0);
+  await expect(page.locator('.stage')).toHaveCount(0);
+});
+
 test('results-page community rankings reuse the compact popup layout', async ({ page }) => {
   await mockStats(page, { assassin: 1 });
   await page.goto('/index.html');

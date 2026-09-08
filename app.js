@@ -63,7 +63,6 @@
 
   function start(mode='12') {
     resetState(mode);
-    hide($('modeModal'));
     hide($('results'));
     show($('quiz'));
     $('modeLabel').textContent = `${modeNames[state.mode].toUpperCase()}`;
@@ -245,12 +244,7 @@
     $('winnerDetails').innerHTML = `
       <div class="detail-item"><strong>Your grand achievement</strong><p>You answered absolutely nothing. Somehow, that is itself an answer.</p></div>
       <div class="detail-item tradeoff-card"><strong>The catch</strong><p>Beginners do not get a class recommendation from this result. Take the quiz again when Maple Island calls.</p></div>`;
-    $('progressionFit').innerHTML = `
-      <div class="stage"><h4>Maple Island</h4><div class="fit">10/10</div><p>You never left the starting point.</p></div>
-      <div class="stage"><h4>2nd Job</h4><div class="fit">—</div><p>You successfully avoided choosing one.</p></div>`;
-    const alternatives = $('alternatives');
-    if (alternatives) alternatives.innerHTML = `<div class="empty-note">No job paths are ranked because you gave the quiz no preference signals.</div>`;
-    renderSharedStats();
+    refreshSharedStats();
     hide($('quiz')); show($('results'));
     window.scrollTo({top:0,behavior:'smooth'});
   }
@@ -319,10 +313,6 @@
       <div class="detail-item"><strong>The things you leaned toward</strong><div class="tag-row">${fitLines}</div></div>
       <div class="detail-item"><strong>What that looks like on this job</strong><ul class="detail-bullets">${winner.notes.map(n => `<li>${n}</li>`).join('')}</ul></div>
       <div class="detail-item tradeoff-card"><strong>The catch</strong><p>${winner.dims.close > 0.75 ? 'You will spend plenty of time in close quarters.' : 'You are not tied to close-quarters fighting.'} ${winner.dims.economy > 0.75 ? 'Mesos and upkeep matter more than they do for most paths.' : 'The job does not lean heavily on money management.'} ${winner.dims.party > 0.75 ? 'Party play is a big part of what makes this path shine.' : 'You can get a lot out of this job on your own.'}</p></div>`;
-
-    $('progressionFit').innerHTML = `
-      <div class="stage"><h4>Lv. 1–30</h4><p>${winner.road.early}</p></div>
-      <div class="stage"><h4>Lv. 30–70</h4><p>${winner.road.second}</p></div>`;
 
     renderSharedStats();
     const eligibilityPanel = document.getElementById('communityEligibility');

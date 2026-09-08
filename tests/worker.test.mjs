@@ -8,10 +8,10 @@ let throwClientLimiter = false;
 let throwAnalyticsWrite = false;
 const VALID_CLIENT_KEY = 'quiz_test_client_key_7f9a21c8';
 const calls = { client: [], ip: [] };
-
 const env = {
   ALLOWED_ORIGIN: 'https://strawberry91592.github.io',
   DATASET_NAME: 'classic_quiz_results',
+  COMMUNITY_RESET_AT: '2026-09-08 13:48:00',
   ACCOUNT_ID: 'test-account',
   ANALYTICS_READ_TOKEN: 'test-token',
   RESULTS: {
@@ -131,4 +131,41 @@ const malformed = new Request('https://stats.example/result', {
 response = await worker.fetch(malformed, env);
 assert.equal(response.status, 400, 'Malformed JSON must be rejected as a client error.');
 
-console.log('Worker checks passed: CORS preflight, valid submission, layered client/IP rate limits, infrastructure-error status handling, client-key validation, eligibility bounds, winner/mode validation, malformed JSON, and Origin protection.');
+const originalFetch = globalThis.fetch;
+let capturedStatsSql = '';
+globalThis.fetch = async (url, options) => {
+  assert.equal(url, 'https://api.cloudflare.com/client/v4/accounts/test-account/analytics_engine/sql');
+  capturedStatsSql = options.body;
+  return new Response(JSON.stringify({ success: true, data: [] }), { status: 200 });
+};
+
+response = await worker.fetch(new Request('https://stats.example/stats'), env);
+assert.equal(response.status, 200, 'Stats should remain readable after applying the reset cutoff.');
+assert.deepEqual(await response.json(), {
+  ok: true,
+  totals: {
+    fighter: 0,
+    page: 0,
+    spearman: 0,
+    fp: 0,
+    il: 0,
+    cleric: 0,
+    hunter: 0,
+    crossbow: 0,
+    assassin: 0,
+    bandit: 0
+  },
+  total: 0
+});
+assert.match(
+  capturedStatsSql,
+  /timestamp >= toDateTime\('2026-09-08 13:48:00'\)/,
+  'Community stats must exclude all Analytics Engine events before the reset cutoff.'
+);
+
+globalThis.fetch = async () => new Response('upstream failure', { status: 500 });
+response = await worker.fetch(new Request('https://stats.example/stats'), env);
+assert.equal(response.status, 502, 'An Analytics stats failure must return HTTP 502.');
+globalThis.fetch = originalFetch;
+
+console.log('Worker checks passed: CORS preflight, valid submission, layered client/IP rate limits, infrastructure-error status handling, client-key validation, eligibility bounds, winner/mode validation, malformed JSON, Origin protection, stats reset cutoff, and stats failure handling.');

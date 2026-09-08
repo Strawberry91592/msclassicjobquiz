@@ -1,0 +1,176 @@
+name: One-time code cleanup
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/one-time-code-cleanup.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout triggering revision
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Remove redundant result and startup code
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          def read(path):
+              return Path(path).read_text(encoding='utf-8')
+
+          def write(path, text):
+              Path(path).write_text(text, encoding='utf-8')
+
+          # Remove the obsolete progression section from the actual DOM.
+          path = 'index.html'
+          text = read(path)
+          pattern = re.compile(
+              r'\n        <section class="panel detail-panel">\n'
+              r'          <div class="panel-head"><div><h3>Your Road Through Maple World</h3>'
+              r'<p>How the fit lines up from early game through your 2nd Job</p></div></div>\n'
+              r'          <div id="progressionFit" class="progression-grid"></div>\n'
+              r'        </section>\n',
+              re.MULTILINE,
+          )
+          new = pattern.sub('\n', text, count=1)
+          if new == text:
+              raise SystemExit('Expected progression section was not found in index.html')
+          text = new.replace('\n  <script src="beginner-stats-fix.js"></script>', '')
+          write(path, text)
+
+          # Integrate the Beginner stats fix into the main application instead of
+          # keeping a separate MutationObserver band-aid script.
+          path = 'app.js'
+          text = read(path)
+          text2 = text.replace("    hide($('modeModal'));\n", '', 1)
+          if text2 == text:
+              raise SystemExit('Obsolete modeModal startup line was not found in app.js')
+          text = text2
+          progression = re.compile(
+              r'\n    \$\(\'progressionFit\'\)\.innerHTML = `.*?`;\n',
+              re.DOTALL,
+          )
+          text2 = progression.sub('\n', text, count=1)
+          if text2 == text:
+              raise SystemExit('Progression rendering block was not found in app.js')
+          text = text2
+          old = "    renderSharedStats();\n    hide($('quiz')); show($('results'));"
+          new = "    refreshSharedStats();\n    hide($('quiz')); show($('results'));"
+          if old not in text:
+              raise SystemExit('Beginner stats call site was not found in app.js')
+          text = text.replace(old, new, 1)
+          write(path, text)
+
+          # Remove the now-unused class progression data from the scoring model.
+          path = 'classes.js'
+          text = read(path)
+          text2, count = re.subn(
+              r',"road":\{"early":"[^"]*","second":"[^"]*"\}',
+              '',
+              text,
+          )
+          if count != 10:
+              raise SystemExit(f'Expected 10 road metadata blocks in classes.js, removed {count}')
+          write(path, text2)
+
+          # Remove dead opening-modal enhancement code. Guide-link enhancement and
+          # the active submission readback wrapper are still retained.
+          path = 'project-enhancements.js'
+          text = read(path)
+          opening_code = re.compile(
+              r'\n  const JOB_ORDER=.*?\n  // Analytics Engine writes are non-blocking\.',
+              re.DOTALL,
+          )
+          text2 = opening_code.sub('\n\n  // Analytics Engine writes are non-blocking.', text, count=1)
+          if text2 == text:
+              raise SystemExit('Dead opening-community enhancement block was not found')
+          text = text2
+          opening_css = re.compile(r'\n    \.opening-community\{.*?\n  `;', re.DOTALL)
+          text2 = opening_css.sub('\n  `;', text, count=1)
+          if text2 == text:
+              raise SystemExit('Dead opening-community CSS block was not found')
+          text = text2.replace('    ensureOpeningPanel();\n', '', 1)
+          write(path, text)
+
+          # Remove obsolete modal/progression selectors from the main stylesheet.
+          path = 'styles.css'
+          text = read(path)
+          modal_css = re.compile(r'\.modal-backdrop\{.*?\.modal-note\{[^}]*\}', re.DOTALL)
+          text2 = modal_css.sub('', text, count=1)
+          if text2 == text:
+              raise SystemExit('Obsolete modal CSS block was not found')
+          text = text2
+          replacements = [
+              ('.eyebrow,.mode-kicker,.section-label{', '.eyebrow,.section-label{'),
+              ('.detail-list,.progression-grid,.shared-stats{', '.detail-list,.shared-stats{'),
+              ('.detail-item,.stage,.stats-row,.community-eligibility{', '.detail-item,.stats-row,.community-eligibility{'),
+              ('.intro-cards,.result-grid-top,.progression-grid{', '.intro-cards,.result-grid-top{'),
+              ('body.night-mode .stage h4,', ''),
+              (',body.night-mode .stage p{', '{'),
+              ('body.night-mode .mode-card,', ''),
+          ]
+          for old, new in replacements:
+              text = text.replace(old, new)
+          text = re.sub(r'\.progression-grid\{[^}]*\}', '', text, count=1)
+          text = re.sub(r'\.stage h4\{[^}]*\}', '', text, count=1)
+          text = re.sub(r'\.stage p\{[^}]*\}', '', text, count=1)
+          write(path, text)
+
+          # Add a focused DOM regression for the removed section.
+          path = 'tests/e2e/quiz.spec.js'
+          text = read(path)
+          marker = "test('results-page community rankings reuse the compact popup layout', async ({ page }) => {"
+          test_block = """test('results omit the redundant progression section', async ({ page }) => {\n  await mockStats(page, { assassin: 1 });\n  await page.goto('/index.html');\n  await advanceToResults(page, 30);\n  await expect(page.locator('#results')).toBeVisible();\n  await expect(page.locator('#progressionFit')).toHaveCount(0);\n  await expect(page.locator('.stage')).toHaveCount(0);\n});\n\n"""
+          if marker not in text:
+              raise SystemExit('Expected E2E insertion point was not found')
+          text = text.replace(marker, test_block + marker, 1)
+          write(path, text)
+
+          # Delete the standalone Beginner workaround now that app.js owns the flow.
+          fix = Path('beginner-stats-fix.js')
+          if not fix.exists():
+              raise SystemExit('beginner-stats-fix.js was expected but is missing')
+          fix.unlink()
+
+          # Final source-level assertions: no hidden/band-aid remnants remain.
+          checks = {
+              'index.html': ['Your Road Through Maple World', 'progressionFit', 'beginner-stats-fix.js'],
+              'app.js': ['progressionFit', "hide($('modeModal'))"],
+              'classes.js': ['"road"'],
+              'project-enhancements.js': ['openingCommunity', 'ensureOpeningPanel', 'JOB_ORDER'],
+              'styles.css': ['.progression-grid', '.stage', '.modal-backdrop', '.mode-modal', '.mode-card', '.mode-kicker'],
+          }
+          for file, needles in checks.items():
+              source = read(file)
+              for needle in needles:
+                  if needle in source:
+                      raise SystemExit(f'Obsolete source remains: {needle!r} in {file}')
+
+          spec = read('tests/e2e/quiz.spec.js')
+          if "results omit the redundant progression section" not in spec:
+              raise SystemExit('Progression-removal regression test is missing')
+
+          # Keep the main app's stats renderer intact and require the Beginner path
+          # to call the active fetch routine directly.
+          app = read('app.js')
+          if "refreshSharedStats();\n    hide($('quiz')); show($('results'));" not in app:
+              raise SystemExit('Beginner result no longer refreshes community stats')
+
+          print('Source cleanup validation passed.')
+          PY
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html app.js classes.js project-enhancements.js styles.css tests/e2e/quiz.spec.js beginner-stats-fix.js .github/workflows/one-time-code-cleanup.yml
+          git commit -m 'Remove redundant progression and dead result code'
+          git push

@@ -5,7 +5,9 @@ const vm = require('node:vm');
 
 const root = path.resolve(__dirname, '..');
 const context = {
-  window: {},
+  window: {
+    fetch: async () => { throw new Error('Unexpected fetch in model test'); }
+  },
   document: {
     getElementById() { return null; },
     createElement() { return { textContent: '', style: {}, appendChild() {} }; },

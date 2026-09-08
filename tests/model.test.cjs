@@ -88,81 +88,81 @@ const optionText = (id, index) => question(id).options[index][1];
 const approvedWording = {
   9: {
     text: question(9).text,
-    options: ['A skill that gives me a strong result when I use it.']
+    options: [[0, 'A skill that gives me a strong result when I use it.']]
   },
   10: {
     text: 'You are fighting monsters that are giving you trouble. What would you rather have?',
     options: [
-      'A stronger attack that can bring them down faster.',
-      'A way to attack them without getting too close.',
-      'A skill that works especially well against those monsters.',
-      'A way to recover and keep fighting without using as many potions.'
+      [0, 'A stronger attack that can bring them down faster.'],
+      [1, 'A way to attack them without getting too close.'],
+      [2, 'A skill that works especially well against those monsters.'],
+      [3, 'A way to recover and keep fighting without using as many potions.']
     ]
   },
   15: {
     text: 'You are fighting monsters that take a while to defeat. What would help you most?',
     options: [
-      'A stronger attack against one monster.',
-      'A way to hit several monsters at once.',
-      'A way to attack safely from farther away.',
-      'A way to move into attack range more quickly.'
+      [0, 'A stronger attack against one monster.'],
+      [1, 'A way to hit several monsters at once.'],
+      [2, 'A way to attack safely from farther away.'],
+      [3, 'A way to move into attack range more quickly.']
     ]
   },
   26: {
     text: 'You find a map where the monsters give good EXP. What would make you want to keep training there?',
     options: [
-      'The monsters are quick to defeat.',
-      'I can attack without moving around much.',
-      'I can keep my potion use low.',
-      'The monsters are easy to hit in groups.'
+      [0, 'The monsters are quick to defeat.'],
+      [1, 'I can attack without moving around much.'],
+      [2, 'I can keep my potion use low.'],
+      [3, 'The monsters are easy to hit in groups.']
     ]
   },
   32: {
     text: 'A training map starts getting crowded with monsters. What would you prefer to do?',
     options: [
-      'Keep attacking the monster I am already focused on.',
-      'Hit several monsters around me at once.',
-      'Move away and attack them from a safer distance.',
-      'Move through the group and attack from a better position.'
+      [0, 'Keep attacking the monster I am already focused on.'],
+      [1, 'Hit several monsters around me at once.'],
+      [2, 'Move away and attack them from a safer distance.'],
+      [3, 'Move through the group and attack from a better position.']
     ]
   },
   35: {
     text: 'You enter a map with monsters spread across several platforms. What matters most?',
     options: [
-      'Being able to attack from a long distance.',
-      'Being able to reach the monsters quickly.',
-      'Having attacks that can cover several monsters.',
-      'Having strong attacks when a monster is right in front of me.'
+      [0, 'Being able to attack from a long distance.'],
+      [1, 'Being able to reach the monsters quickly.'],
+      [2, 'Having attacks that can cover several monsters.'],
+      [3, 'Having strong attacks when a monster is right in front of me.']
     ]
   },
   43: {
     text: 'You are fighting a monster that is stronger than the ones you normally train on. What do you do first?',
     options: [
-      'Use my strongest attack and try to finish it quickly.',
-      'Keep my distance and attack safely.',
-      'Look for a way to hit it while avoiding its attacks.',
-      'Use attacks that can also deal with nearby monsters.'
+      [0, 'Use my strongest attack and try to finish it quickly.'],
+      [1, 'Keep my distance and attack safely.'],
+      [2, 'Look for a way to hit it while avoiding its attacks.'],
+      [3, 'Use attacks that can also deal with nearby monsters.']
     ]
   },
   46: {
     text: "You have enough SP for a skill you've been waiting to improve. What would you rather do?",
     options: [
-      'Put the SP into the skill I use most often.',
-      'Save the SP for a skill I will need later.',
-      'Improve a skill that makes another part of my build work better.',
-      'Spend the SP on whichever upgrade gives me the biggest immediate improvement.'
+      [0, 'Put the SP into the skill I use most often.'],
+      [1, 'Save the SP for a skill I will need later.'],
+      [2, 'Improve a skill that makes another part of my build work better.'],
+      [3, 'Spend the SP on whichever upgrade gives me the biggest immediate improvement.']
     ]
   },
   47: {
     text: question(47).text,
-    options: ['I like it when grouping monsters together leads to a big payoff.']
+    options: [[2, 'I like it when grouping monsters together leads to a big payoff.']]
   }
 };
 
 for (const [idString, expected] of Object.entries(approvedWording)) {
   const id = Number(idString);
   assert.equal(question(id).text, expected.text, `Question ${id} wording is incorrect.`);
-  expected.options.forEach((text, index) => {
+  expected.options.forEach(([index, text]) => {
     assert.equal(optionText(id, index), text, `Question ${id} option ${index + 1} wording is incorrect.`);
   });
 }

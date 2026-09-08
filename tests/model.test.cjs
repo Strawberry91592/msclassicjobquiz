@@ -4,10 +4,25 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const root = path.resolve(__dirname, '..');
-const context = { window: {} };
+const context = {
+  window: {},
+  document: {
+    getElementById() { return null; },
+    createElement() { return { textContent: '', style: {}, appendChild() {} }; },
+    head: { appendChild() {} }
+  },
+  MutationObserver: class {
+    observe() {}
+  },
+  setTimeout,
+  clearTimeout,
+  Promise
+};
 vm.createContext(context);
-vm.runInContext(fs.readFileSync(path.join(root, 'questions.js'), 'utf8'), context);
-vm.runInContext(fs.readFileSync(path.join(root, 'classes.js'), 'utf8'), context);
+
+for (const file of ['questions.js', 'classes.js', 'project-enhancements.js']) {
+  vm.runInContext(fs.readFileSync(path.join(root, file), 'utf8'), context, { filename: file });
+}
 
 const questions = context.window.QUIZ_QUESTIONS;
 const classes = context.window.CLASS_DATA;
@@ -15,7 +30,6 @@ const dims = context.window.QUIZ_DIMS;
 const dimWeights = context.window.QUIZ_DIM_WEIGHTS;
 const questionWeights = context.window.QUIZ_QUESTION_WEIGHTS;
 const vectors = context.window.QUIZ_OPTION_VECTORS;
-const enhancements = fs.readFileSync(path.join(root, 'project-enhancements.js'), 'utf8');
 
 assert.equal(questions.length, 48, 'The quiz must contain exactly 48 questions.');
 assert.equal(
@@ -66,14 +80,89 @@ for (const [key, profile] of Object.entries(classes)) {
   }
 }
 
-assert.ok(enhancements.includes("A skill that gives me a strong result when I use it."), 'Approved Q9 wording revision is missing.');
-assert.ok(enhancements.includes('You are fighting monsters that are giving me trouble. What would you rather have?'), 'Approved Q10 wording revision is missing.');
-assert.ok(enhancements.includes('You are fighting monsters that take a while to defeat. What would help you most?'), 'Approved Q15 wording revision is missing.');
-assert.ok(enhancements.includes('You find a map where the monsters give good EXP. What would make you want to keep training there?'), 'Approved Q26 wording revision is missing.');
-assert.ok(enhancements.includes('A training map starts getting crowded with monsters. What would you prefer to do?'), 'Approved Q32 wording revision is missing.');
-assert.ok(enhancements.includes('You enter a map with monsters spread across several platforms. What matters most?'), 'Approved Q35 wording revision is missing.');
-assert.ok(enhancements.includes('You are fighting a monster that is stronger than the ones you normally train on. What do you do first?'), 'Approved Q43 wording revision is missing.');
-assert.ok(enhancements.includes("You have enough SP for a skill you've been waiting to improve. What would you rather do?"), 'Approved Q46 wording revision is missing.');
-assert.ok(enhancements.includes('I like it when grouping monsters together leads to a big payoff.'), 'Approved Q47 wording revision is missing.');
+const question = id => questions.find(q => q.id === id);
+const optionText = (id, index) => question(id).options[index][1];
 
-console.log('Scoring model checks passed: 48 questions, 10 jobs, 20 dimensions, all weights/vectors valid, approved revisions present.');
+const approvedWording = {
+  9: {
+    text: question(9).text,
+    options: ['A skill that gives me a strong result when I use it.']
+  },
+  10: {
+    text: 'You are fighting monsters that are giving you trouble. What would you rather have?',
+    options: [
+      'A stronger attack that can bring them down faster.',
+      'A way to attack them without getting too close.',
+      'A skill that works especially well against those monsters.',
+      'A way to recover and keep fighting without using as many potions.'
+    ]
+  },
+  15: {
+    text: 'You are fighting monsters that take a while to defeat. What would help you most?',
+    options: [
+      'A stronger attack against one monster.',
+      'A way to hit several monsters at once.',
+      'A way to attack safely from farther away.',
+      'A way to move into attack range more quickly.'
+    ]
+  },
+  26: {
+    text: 'You find a map where the monsters give good EXP. What would make you want to keep training there?',
+    options: [
+      'The monsters are quick to defeat.',
+      'I can attack without moving around much.',
+      'I can keep my potion use low.',
+      'The monsters are easy to hit in groups.'
+    ]
+  },
+  32: {
+    text: 'A training map starts getting crowded with monsters. What would you prefer to do?',
+    options: [
+      'Keep attacking the monster I am already focused on.',
+      'Hit several monsters around me at once.',
+      'Move away and attack them from a safer distance.',
+      'Move through the group and attack from a better position.'
+    ]
+  },
+  35: {
+    text: 'You enter a map with monsters spread across several platforms. What matters most?',
+    options: [
+      'Being able to attack from a long distance.',
+      'Being able to reach the monsters quickly.',
+      'Having attacks that can cover several monsters.',
+      'Having strong attacks when a monster is right in front of me.'
+    ]
+  },
+  43: {
+    text: 'You are fighting a monster that is stronger than the ones you normally train on. What do you do first?',
+    options: [
+      'Use my strongest attack and try to finish it quickly.',
+      'Keep my distance and attack safely.',
+      'Look for a way to hit it while avoiding its attacks.',
+      'Use attacks that can also deal with nearby monsters.'
+    ]
+  },
+  46: {
+    text: "You have enough SP for a skill you've been waiting to improve. What would you rather do?",
+    options: [
+      'Put the SP into the skill I use most often.',
+      'Save the SP for a skill I will need later.',
+      'Improve a skill that makes another part of my build work better.',
+      'Spend the SP on whichever upgrade gives me the biggest immediate improvement.'
+    ]
+  },
+  47: {
+    text: question(47).text,
+    options: ['I like it when grouping monsters together leads to a big payoff.']
+  }
+};
+
+for (const [idString, expected] of Object.entries(approvedWording)) {
+  const id = Number(idString);
+  assert.equal(question(id).text, expected.text, `Question ${id} wording is incorrect.`);
+  expected.options.forEach((text, index) => {
+    assert.equal(optionText(id, index), text, `Question ${id} option ${index + 1} wording is incorrect.`);
+  });
+}
+
+console.log('Scoring model checks passed: 48 questions, 10 jobs, 20 dimensions, all weights/vectors valid, enhancements executed, approved revisions present.');

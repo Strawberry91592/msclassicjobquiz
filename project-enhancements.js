@@ -172,8 +172,16 @@
   style.textContent=`
     .job-match-guides{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-top:10px}
     .job-match-guides>span{width:100%;font-size:.66rem;font-weight:800;letter-spacing:.08em;opacity:.58}
-    .job-match-guides a{display:inline-flex;padding:6px 9px;border:1px solid var(--line,#c8d0dc);border-radius:8px;font-size:.73rem;font-weight:700;text-decoration:none;color:inherit;background:rgba(127,143,166,.08)}
-    .job-match-guides a:hover{text-decoration:underline}
+    .job-match-guides a{position:relative;display:inline-flex;align-items:center;padding:7px 10px;border:1px solid var(--line,#c8d0dc);border-radius:8px;font-size:.73rem;font-weight:700;text-decoration:none;color:inherit;background:rgba(127,143,166,.08);cursor:pointer;transition:border-color .15s ease,background .15s ease,transform .15s ease,box-shadow .15s ease}
+    .job-match-guides a::after{content:"↗";margin-left:7px;font-size:.82rem;font-weight:900;line-height:1;opacity:.72;transform:translateY(-1px)}
+    .job-match-guides a::before{content:"Open MeowDB guide";position:absolute;left:50%;bottom:calc(100% + 8px);z-index:10;transform:translate(-50%,4px);padding:6px 8px;border:1px solid rgba(127,143,166,.45);border-radius:6px;background:#172536;color:#fff;font-size:.67rem;font-weight:700;line-height:1.2;white-space:nowrap;opacity:0;pointer-events:none;box-shadow:0 5px 14px rgba(15,28,42,.2);transition:opacity .15s ease,transform .15s ease}
+    .job-match-guides a:hover,.job-match-guides a:focus-visible{border-color:#7198b4;background:rgba(113,152,180,.14);box-shadow:0 3px 8px rgba(35,62,82,.1);transform:translateY(-1px);outline:none}
+    .job-match-guides a:hover::before,.job-match-guides a:focus-visible::before{opacity:1;transform:translate(-50%,0)}
+    .job-match-guides a:hover::after,.job-match-guides a:focus-visible::after{opacity:1}
+    body.night-mode .job-match-guides a{border-color:#425a70;background:rgba(94,121,145,.12);color:#c4d4df}
+    body.night-mode .job-match-guides a:hover,body.night-mode .job-match-guides a:focus-visible{border-color:#7198b4;background:rgba(113,152,180,.2)}
+    body.night-mode .job-match-guides a::before{background:#e7eef3;color:#1c2c3d;border-color:#6d8599;box-shadow:0 6px 16px rgba(0,0,0,.35)}
+    @media(max-width:650px){.job-match-guides a{padding:7px 9px}.job-match-guides a::before{display:none}}
   `;
   document.head.appendChild(style);
 })();

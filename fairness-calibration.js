@@ -1,10 +1,31 @@
-/* Uniform-neutral answer-space calibration.
-   The hidden dimension is constant for every answer, so it cannot represent a respondent trait.
-   It acts only as a class-specific prior that compensates for structural differences in the
-   visible playstyle prototype geometry. Visible question vectors and class dimensions remain
-   unchanged.
+/* Quiz score calibration.
+   First, equalize the weighted L1 radius of class prototypes around the neutral midpoint so
+   prototype extremity cannot create a structural advantage. Then apply the fixed neutral class
+   prior required to make the deterministic neutral 10,000-response regression exactly uniform.
 */
 (() => {
+  const classes = Object.values(window.CLASS_DATA || {});
+  const dimensions = Object.keys(window.QUIZ_DIMS || {});
+  const weights = window.QUIZ_DIM_WEIGHTS || {};
+  const radius = cls => dimensions.reduce((sum, dim) => {
+    return sum + Number(weights[dim] ?? 1) * Math.abs(Number(cls.dims?.[dim] ?? 0.5) - 0.5);
+  }, 0);
+  const radii = classes
+    .map(radius)
+    .filter(value => Number.isFinite(value) && value > 0)
+    .sort((a, b) => a - b);
+  if (radii.length) {
+    const target = radii[Math.floor(radii.length / 2)];
+    classes.forEach(cls => {
+      const current = radius(cls);
+      if (!(current > 0)) return;
+      const scale = target / current;
+      dimensions.forEach(dim => {
+        cls.dims[dim] = 0.5 + (Number(cls.dims[dim] ?? 0.5) - 0.5) * scale;
+      });
+    });
+  }
+
   const priorByJob = {
     fighter: 0.00,
     page: 0.45,

@@ -14,12 +14,21 @@ binding = "RESULTS"
 dataset = "classic_quiz_results"
 
 # Abuse protection for anonymous community-result submissions.
-# Two accepted calls per minute per client key is enough to stop rapid scripted
-# inflation while still allowing a genuine user to retake the quiz.
+# A stable anonymous browser key keeps normal users behind shared IP addresses
+# independent, while the broader IP limiter prevents one network from creating
+# unlimited fresh browser keys and hammering the endpoint.
 [[ratelimits]]
-name = "SUBMISSION_RATE_LIMITER"
+name = "CLIENT_RATE_LIMITER"
 namespace_id = "923847161"
 
   [ratelimits.simple]
   limit = 2
+  period = 60
+
+[[ratelimits]]
+name = "IP_RATE_LIMITER"
+namespace_id = "923847162"
+
+  [ratelimits.simple]
+  limit = 20
   period = 60

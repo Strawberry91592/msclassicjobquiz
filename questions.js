@@ -21,3 +21,30 @@ window.QUIZ_QUESTIONS = [
   {"id":19,"section":"2nd Job Playstyle","text":"Which kind of improvement would make a new skill feel most valuable to you?","options":[["A","It becomes extremely effective when I prepare the situation correctly."],["B","It gives me a strong result immediately without much setup."],["C","It solves a problem that my current tools handle poorly."],["D","It gives me another way to approach fights instead of replacing my old routine."]]},
   {"id":20,"section":"2nd Job Playstyle","text":"After reaching level 30, what would make the new job feel like a natural fit for your character?","options":[["A","My familiar fighting style becomes noticeably stronger."],["B","I gain a new way to shape how monsters are fought."],["C","I gain tools that make me more useful in a party or in unusual situations."],["D","I gain a distinct specialty that gives me a reason to seek out the right targets or maps."]]}
 ];
+
+// Final prototype separation runs when CLASS_DATA is accessed, after classes.js has applied
+// its dimension/radius normalization. The adjustment is intentionally small and only sharpens
+// the ranged, reliable, positioning-oriented signature already present in the Hunter profile.
+(() => {
+  let backing;
+  Object.defineProperty(window, 'CLASS_DATA', {
+    configurable: true,
+    get() {
+      if (backing) {
+        const hunter = backing.hunter;
+        if (hunter?.dims && !hunter.dims.__rangedCalibrationApplied) {
+          const dims = hunter.dims;
+          for (const [dimension, factor] of [['range', 1.018], ['position', 1.018], ['consistency', 1.018]]) {
+            dims[dimension] = 0.5 + (Number(dims[dimension] ?? 0.5) - 0.5) * factor;
+          }
+          for (const [dimension, factor] of [['close', 0.90], ['mobility', 0.90], ['party', 0.90]]) {
+            dims[dimension] = 0.5 + (Number(dims[dimension] ?? 0.5) - 0.5) * factor;
+          }
+          Object.defineProperty(dims, '__rangedCalibrationApplied', {value: true, enumerable: false});
+        }
+      }
+      return backing;
+    },
+    set(value) { backing = value; }
+  });
+})();

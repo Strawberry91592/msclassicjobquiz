@@ -246,6 +246,12 @@
     window.scrollTo({top:0,behavior:'smooth'});
   }
 
+  function guideMarkup(jobKey) {
+    const guides = window.QUIZ_JOB_GUIDES?.[jobKey] || [];
+    if (!guides.length) return '';
+    return `<div class="job-match-guides" aria-label="MeowDB leveling guides">${guides.map(([label,url]) => `<a href="${url}" target="_blank" rel="noopener">${label}</a>`).join('')}</div>`;
+  }
+
   function renderResults() {
     const result = score();
     state.results = result;
@@ -284,6 +290,7 @@
           <div class="job-match-note">${note}</div>
           ${i>0 && i<4 ? `<details class="job-match-why"><summary>Why it was close</summary><p>${cls.notes.slice(0,2).join(' ')}</p></details>` : ''}
           ${i===0 ? `<p class="job-match-description">${cls.summary}</p>` : ''}
+          ${guideMarkup(key)}
         </div>
       </article>`;
     }).join('');

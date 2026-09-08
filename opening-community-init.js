@@ -23,6 +23,12 @@
   // The old opening-page totals were useful as a prototype, but the rankings
   // now live behind a dedicated control so the landing modal stays focused.
   document.getElementById('openingCommunity')?.remove();
+  // project-enhancements.js still contains legacy opening-panel initialization
+  // for compatibility with older markup. It runs its init on DOMContentLoaded,
+  // so remove the legacy panel again after that initializer has run.
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('openingCommunity')?.remove();
+  }, {once:true});
 
   const wrap = document.querySelector('.theme-switch-wrap');
   const themeToggle = document.getElementById('themeToggle');

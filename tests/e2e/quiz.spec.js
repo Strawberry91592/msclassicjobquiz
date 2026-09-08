@@ -188,7 +188,7 @@ test('results-page community rankings reuse the compact popup layout', async ({ 
   await expect(rows.first()).toContainText('Assassin');
 
   const firstLayout = await rows.nth(0).evaluate(el => getComputedStyle(el).gridColumn);
-  expect(firstLayout).toBe('1 / -1';
+  expect(firstLayout).toBe('1 / -1');
 
   const boxes = await rows.nth(1).boundingBox();
   const nextBox = await rows.nth(2).boundingBox();

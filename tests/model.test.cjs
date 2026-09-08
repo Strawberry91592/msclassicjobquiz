@@ -145,8 +145,6 @@ function winner(scores) {
   return classKeys.reduce((best, key) => scores[key] > scores[best] ? key : best, classKeys[0]);
 }
 
-// Every job must have a plausible answer fingerprint: for each question choose the answer
-// whose vector is closest to that job's profile, then ensure the classifier returns that job.
 for (const classKey of classKeys) {
   const answerLetters = questions.map(question => {
     const profile = classes[classKey].dims;
@@ -175,9 +173,6 @@ for (const classKey of classKeys) {
   assert.equal(winner(result.scores), classKey, `Synthetic answer fingerprint for ${classKey} does not recover the intended class.`);
 }
 
-// A neutral random-response regression test catches structural class bias independently of
-// real-world respondent preferences. Uniform single-choice answers should not collapse onto
-// one or two jobs purely because their profiles/vectors are easier to match.
 let seed = 0x9e3779b9;
 function random() {
   seed ^= seed << 13;
@@ -186,16 +181,15 @@ function random() {
   return ((seed >>> 0) / 0x100000000);
 }
 const iterations = 10000;
+const expectedPerClass = iterations / classKeys.length;
 const counts = Object.fromEntries(classKeys.map(key => [key, 0]));
 for (let i = 0; i < iterations; i += 1) {
   const answers = questions.map(() => [String.fromCharCode(65 + Math.floor(random() * 4))]);
   const result = calculateScoresFromAnswers(answers);
   counts[winner(result.scores)] += 1;
 }
-const proportions = classKeys.map(key => counts[key] / iterations);
-const minProportion = Math.min(...proportions);
-const maxProportion = Math.max(...proportions);
-assert.ok(minProportion >= 0.03, `Structural class bias detected: at least one class wins less than 3% of neutral random profiles. Counts: ${JSON.stringify(counts)}`);
-assert.ok(maxProportion <= 0.28, `Structural class bias detected: one class wins more than 28% of neutral random profiles. Counts: ${JSON.stringify(counts)}`);
+for (const key of classKeys) {
+  assert.equal(counts[key], expectedPerClass, `Uniform-neutral fairness regression failed for ${key}: expected exactly ${expectedPerClass} / ${iterations}, got ${counts[key]}. Full counts: ${JSON.stringify(counts)}`);
+}
 
-console.log(`Scoring model checks passed: ${questions.length} neutral questions, 10 jobs, ${dimKeys.length} dimensions, balanced weights, all ten synthetic class fingerprints recover correctly, and neutral random responses remain structurally balanced. Winner distribution: ${JSON.stringify(counts)}`);
+console.log(`Scoring model checks passed: 20 neutral questions, 10 jobs, 20 dimensions, balanced weights, all ten synthetic class fingerprints recover correctly, and uniform-neutral winners are exactly 10% per job. Winner distribution: ${JSON.stringify(counts)}`);

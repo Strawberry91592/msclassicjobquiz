@@ -6,14 +6,22 @@ const COMMUNITY_MAX_ANSWERED = 48;
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    const configuredOrigin = env.ALLOWED_ORIGIN || '*';
+    const requestOrigin = request.headers.get('Origin') || '';
     const headers = {
-      'Access-Control-Allow-Origin': env.ALLOWED_ORIGIN || '*',
+      'Access-Control-Allow-Origin': configuredOrigin,
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
-      'Cache-Control': 'no-store'
+      'Cache-Control': 'no-store',
+      'Vary': 'Origin'
     };
 
-    if (request.method === 'OPTIONS') return new Response(null, { headers });
+    if (request.method === 'OPTIONS') {
+      if (configuredOrigin !== '*' && requestOrigin !== configuredOrigin) {
+        return json({ ok:false, error:'Origin not allowed.' }, headers, 403);
+      }
+      return new Response(null, { headers });
+    }
 
     if (url.pathname === '/stats' && request.method === 'GET') {
       try {
@@ -25,17 +33,39 @@ export default {
 
     if (url.pathname === '/result' && request.method === 'POST') {
       try {
+        if (configuredOrigin !== '*' && requestOrigin !== configuredOrigin) {
+          return json({ ok:false, error:'Origin not allowed.' }, headers, 403);
+        }
+
         const body = await request.json();
         const winner = typeof body.winner === 'string' ? body.winner : '';
         const mode = String(body.mode ?? '');
         const answered = Number(body.answered);
 
-        // Community eligibility is enforced here, not just in the browser.
+        // Validate the submission before consuming the rate-limit allowance.
         if (mode !== CURRENT_MODE) return json({ ok:false, error:'Unsupported quiz mode.' }, headers, 400);
         if (!Number.isInteger(answered) || answered < COMMUNITY_MIN_ANSWERED || answered > COMMUNITY_MAX_ANSWERED) {
           return json({ ok:false, error:'Incomplete result.' }, headers, 400);
         }
         if (!ALLOWED_WINNERS.has(winner)) return json({ ok:false, error:'Invalid result.' }, headers, 400);
+
+        if (!env.SUBMISSION_RATE_LIMITER) {
+          return json({ ok:false, error:'Submission protection unavailable.' }, headers, 503);
+        }
+
+        // There is no durable anonymous user ID. Use Cloudflare's client IP as
+        // a transient abuse-control key; the IP is not written to Analytics Engine.
+        // The binding itself is eventually consistent and location-local, so this
+        // is abuse mitigation rather than an exact accounting guarantee.
+        const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
+        const { success } = await env.SUBMISSION_RATE_LIMITER.limit({ key: `result:${clientIp}` });
+        if (!success) {
+          return json(
+            { ok:false, error:'Too many submissions. Please wait before submitting another result.' },
+            { ...headers, 'Retry-After':'60' },
+            429
+          );
+        }
 
         // Analytics Engine writes are intentionally non-blocking. The submitted
         // answered count is retained for auditing, while blob2 preserves the

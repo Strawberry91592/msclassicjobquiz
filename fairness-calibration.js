@@ -44,6 +44,29 @@
     }
     addResultCardClass();
 
+    // The core app already blocks submission below the 15-answer community
+    // threshold; this keeps the visible eligibility label consistent with it.
+    const syncCommunityEligibility = () => {
+      const eligibility = document.getElementById?.('communityEligibility');
+      if (!eligibility) return;
+      const match = (eligibility.textContent || '').match(/Your\s+(\d+)-answer/);
+      if (!match) return;
+      const answered = Number(match[1]);
+      if (answered >= 15) return;
+      if (!eligibility.textContent.includes('Not counted')) {
+        eligibility.className = 'community-eligibility ineligible';
+        eligibility.innerHTML = '<strong>Community Results: Not counted</strong><span>At least 15 questions must have a ranked answer before a result is added to the community totals.</span>';
+      }
+    };
+    if (typeof MutationObserver === 'function') {
+      const eligibility = document.getElementById?.('communityEligibility');
+      if (eligibility) {
+        const observer = new MutationObserver(syncCommunityEligibility);
+        observer.observe(eligibility, {childList: true, subtree: true, characterData: true});
+        syncCommunityEligibility();
+      }
+    }
+
     const addCommunityResetNotice = () => {
       if (typeof document?.querySelector !== 'function') return;
       const panel = document.querySelector('.shared-stats-panel');

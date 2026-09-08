@@ -56,7 +56,7 @@ jobs:
                           return text[:start] + text[i + 1:]
               raise SystemExit(f'Unbalanced CSS rule: {selector!r}')
 
-          # Remove the Road section from the actual DOM.
+          # Remove the actual HTML section, not merely hide it.
           path = 'index.html'
           text = read(path)
           road_start = '        <section class="panel detail-panel">\n          <div class="panel-head"><div><h3>Your Road Through Maple World</h3>'
@@ -64,50 +64,54 @@ jobs:
           text = text.replace('\n  <script src="beginner-stats-fix.js"></script>', '')
           write(path, text)
 
-          # Remove every progression renderer, all obsolete startup references, and the
-          # dead alternatives placeholder. There are two progression blocks: Beginner and normal results.
+          # Remove all progression rendering and stale DOM compatibility code from app.js.
           path = 'app.js'
           text = read(path)
-          obsolete = "    hide($('modeModal'));\n"
-          text = text.replace(obsolete, '', 1)
+          text = text.replace("    hide($('modeModal'));\n", '', 1)
           progression = "    $('progressionFit').innerHTML = `"
           if progression not in text:
               raise SystemExit('No progression renderer found in app.js')
           while progression in text:
-              text = remove_between(text, progression, '    ' + ('const alternatives =' if '    const alternatives =' in text[text.find(progression):] else 'renderSharedStats();'))
-              # If this was the normal-results block there is no alternatives marker;
-              # the string above can fall back to renderSharedStats().
-          while '    const alternatives =' in text:
-              text = remove_between(text, '    const alternatives =', '    renderSharedStats();')
-          old = "    renderSharedStats();\n    hide($('quiz')); show($('results'));"
-          new = "    refreshSharedStats();\n    hide($('quiz')); show($('results'));"
-          if old not in text:
+              start = text.find(progression)
+              alternatives = text.find('    const alternatives =', start)
+              stats = text.find('    renderSharedStats();', start)
+              if alternatives >= 0 and (stats < 0 or alternatives < stats):
+                  end = alternatives
+              elif stats >= 0:
+                  end = stats
+              else:
+                  raise SystemExit('Could not locate end of progression rendering block')
+              text = text[:start] + text[end:]
+          alternatives = "    const alternatives ="
+          while alternatives in text:
+              text = remove_between(text, alternatives, '    renderSharedStats();')
+          old_stats = "    renderSharedStats();\n    hide($('quiz')); show($('results'));"
+          new_stats = "    refreshSharedStats();\n    hide($('quiz')); show($('results'));"
+          if old_stats not in text:
               raise SystemExit('Beginner stats call site not found in app.js')
-          text = text.replace(old, new, 1)
-          if progression in text:
-              raise SystemExit('A progression renderer remains in app.js')
+          text = text.replace(old_stats, new_stats, 1)
           write(path, text)
 
-          # Remove progression metadata from the class model.
+          # Remove class-road metadata that was only consumed by the deleted section.
           path = 'classes.js'
           original = read(path)
-          marker = ';\nwindow.QUIZ_DIMS'
-          if marker not in original:
-              raise SystemExit('Could not locate QUIZ_DIMS boundary in classes.js')
-          left, suffix = original.split(marker, 1)
+          boundary = ';\nwindow.QUIZ_DIMS'
+          if boundary not in original:
+              raise SystemExit('QUIZ_DIMS boundary not found in classes.js')
+          left, suffix = original.split(boundary, 1)
           prefix, payload = left.split('window.CLASS_DATA = ', 1)
-          obj = json.loads(payload)
-          if len(obj) != 10 or not all('road' in cls for cls in obj.values()):
-              raise SystemExit('Expected exactly 10 class road metadata blocks')
-          for cls in obj.values():
+          data = json.loads(payload)
+          if len(data) != 10 or not all('road' in cls for cls in data.values()):
+              raise SystemExit('Expected 10 class road metadata blocks')
+          for cls in data.values():
               del cls['road']
-          write(path, prefix + 'window.CLASS_DATA = ' + json.dumps(obj, separators=(',', ':'), ensure_ascii=False) + marker + suffix)
+          write(path, prefix + 'window.CLASS_DATA = ' + json.dumps(data, separators=(',', ':'), ensure_ascii=False) + boundary + suffix)
 
-          # project-enhancements.js has already been cleaned of the obsolete opening screen code.
+          # project-enhancements.js was already source-cleaned; fail rather than touching active code.
           if any(token in read('project-enhancements.js') for token in ('openingCommunity', 'ensureOpeningPanel', 'JOB_ORDER')):
-              raise SystemExit('Unexpected stale opening-community enhancement code remains')
+              raise SystemExit('Unexpected stale opening-community code remains in project-enhancements.js')
 
-          # Remove unused modal and progression CSS from the real stylesheet.
+          # Remove obsolete modal/progression CSS from the permanent stylesheet.
           path = 'styles.css'
           text = read(path)
           start = text.find('.modal-backdrop{')
@@ -122,47 +126,51 @@ jobs:
           text = text.replace('.detail-list,.progression-grid,.shared-stats{', '.detail-list,.shared-stats{')
           text = text.replace('.detail-item,.stage,.stats-row,.community-eligibility{', '.detail-item,.stats-row,.community-eligibility{')
           text = text.replace('.intro-cards,.result-grid-top,.progression-grid{', '.intro-cards,.result-grid-top{')
-          text = text.replace('body.night-mode .stage h4,', '')
-          text = text.replace(',body.night-mode .stage p{', '{')
-          text = text.replace('body.night-mode .mode-card,', '')
           for selector in ('.progression-grid', '.stage h4', '.stage p'):
               text = remove_css_rule(text, selector)
+          text = text.replace('body.night-mode .stage h4,', '')
+          text = text.replace('body.night-mode .stage p,', '')
           write(path, text)
 
-          # Add a regression test for the permanent removal.
+          # Regression test for the permanent removal.
           path = 'tests/e2e/quiz.spec.js'
           text = read(path)
           if 'results omit the redundant progression section' not in text:
               marker = "test('results-page community rankings reuse the compact popup layout', async ({ page }) => {"
               if marker not in text:
-                  raise SystemExit('Expected community-layout test marker not found')
+                  raise SystemExit('Expected compact-layout test marker not found')
               regression = """test('results omit the redundant progression section', async ({ page }) => {\n  await mockStats(page, { assassin: 1 });\n  await page.goto('/index.html');\n  await advanceToResults(page, 30);\n  await expect(page.locator('#results')).toBeVisible();\n  await expect(page.locator('#progressionFit')).toHaveCount(0);\n  await expect(page.locator('.stage')).toHaveCount(0);\n});\n\n"""
               text = text.replace(marker, regression + marker, 1)
           write(path, text)
 
-          # Delete this temporary workflow itself in the cleanup commit.
+          # Delete the temporary automation itself so no one-time helper remains in the repo.
           Path('.github/workflows/one-time-code-cleanup.yml').unlink(missing_ok=True)
 
-          # Verify no dead source or workaround references remain.
           forbidden = {
               'index.html': ['Your Road Through Maple World', 'progressionFit', 'beginner-stats-fix.js'],
               'app.js': ['progressionFit', "hide($('modeModal'))", "const alternatives = $('alternatives')"],
               'classes.js': ['"road"'],
               'project-enhancements.js': ['openingCommunity', 'ensureOpeningPanel', 'JOB_ORDER'],
-              'styles.css': ['.progression-grid', '.stage', '.modal-backdrop', '.mode-modal', '.mode-card', '.mode-kicker'],
+              'styles.css': ['.progression-grid', '.stage h4', '.stage p', '.detail-item,.stage,', '.modal-backdrop', '.mode-modal', '.mode-card', '.mode-kicker'],
           }
           for file, needles in forbidden.items():
+              if not Path(file).exists():
+                  continue
               source = read(file)
               for needle in needles:
                   if needle in source:
                       raise SystemExit(f'Obsolete source remains: {needle!r} in {file}')
 
-          app = read('app.js')
-          if "refreshSharedStats();\n    hide($('quiz')); show($('results'));" not in app:
+          if "refreshSharedStats();\n    hide($('quiz')); show($('results'));" not in read('app.js'):
               raise SystemExit('Beginner result does not directly refresh community stats')
-
           print('Source cleanup validation passed.')
           PY
+
+          node --check app.js
+          node --check project-enhancements.js
+          node --check community-client-key.js
+          node --check community-rankings.js
+          node tests/model.test.cjs
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'

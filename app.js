@@ -17,8 +17,8 @@
   };
 
   const $ = id => document.getElementById(id);
-  const show = el => el.classList.remove('hidden');
-  const hide = el => el.classList.add('hidden');
+  const show = el => { if (el) el.classList.remove('hidden'); };
+  const hide = el => { if (el) el.classList.add('hidden'); };
 
   function applyTheme(mode) {
     const night = mode === 'night';
@@ -440,7 +440,6 @@
 
   initTheme();
 
-  document.querySelectorAll('.mode-card[data-mode="12"]').forEach(btn => btn.addEventListener('click', () => start()));
   $('clearRanking').addEventListener('click', () => { state.answers[state.index] = {ranked:[],abstained:false}; renderQuestion(); });
   $('abstainBtn').addEventListener('click', () => { const a = state.answers[state.index]; a.ranked=[]; a.abstained=!a.abstained; renderQuestion(); });
   $('backBtn').addEventListener('click', () => { if (state.index>0) { state.index--; renderQuestion(); window.scrollTo({top:0,behavior:'smooth'}); } });
@@ -448,4 +447,5 @@
   $('quitBtn').addEventListener('click', () => { if (confirm('Restart and clear your current answers?')) start(); });
   $('retakeBtn').addEventListener('click', retake);
 
+  start('12');
 })();

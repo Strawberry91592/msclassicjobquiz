@@ -219,7 +219,6 @@ test('header controls sit below the branding on desktop and mobile', async ({ pa
 });
 
 test('native share uses the quiz title, text, and current URL', async ({ page }) => {
-  let shared = null;
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'share', {
       configurable: true,
@@ -231,7 +230,7 @@ test('native share uses the quiz title, text, and current URL', async ({ page })
   await page.goto('/index.html');
   await page.locator('#shareToggle').click();
   await page.waitForFunction(() => window.__sharedData);
-  shared = await page.evaluate(() => window.__sharedData);
+  const shared = await page.evaluate(() => window.__sharedData);
   expect(shared.title).toBe('MapleStory Classic World Job Quiz');
   expect(shared.text).toBe('Find out which MS Classic World Job best matches your playstyle.');
   expect(shared.url).toBe(await page.evaluate(() => window.location.href));
@@ -260,6 +259,10 @@ test('copy link reports success in the share fallback', async ({ page }) => {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'share', { configurable: true, value: undefined });
     Object.defineProperty(navigator, 'canShare', { configurable: true, value: undefined });
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: text => { window.__copiedText = text; return Promise.resolve(); } }
+    });
   });
   await mockStats(page);
   await page.goto('/index.html');
@@ -267,4 +270,5 @@ test('copy link reports success in the share fallback', async ({ page }) => {
   await page.locator('#copyShareLink').click();
   await expect(page.locator('#copyShareLink strong')).toHaveText('Link copied!');
   await expect(page.locator('#copyShareStatus')).toHaveText('The quiz link has been copied to your clipboard.');
+  expect(await page.evaluate(() => window.__copiedText)).toBe(await page.evaluate(() => window.location.href));
 });

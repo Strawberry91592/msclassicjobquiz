@@ -13,6 +13,10 @@
   <div class="page-shell">
     <header class="masthead">
       <div class="theme-switch-wrap">
+        <button id="communityToggle" class="theme-toggle community-toggle" type="button" aria-label="Open community rankings" aria-haspopup="dialog" aria-expanded="false" title="Open community rankings">
+          <span class="community-toggle-icon" aria-hidden="true">🏆</span>
+          <span>Rankings</span>
+        </button>
         <button id="themeToggle" class="theme-toggle" type="button" aria-label="Switch to night mode" aria-pressed="false" title="Switch to night mode">
           <span class="theme-icon theme-sun" aria-hidden="true">☀</span>
           <span class="theme-toggle-label">Day</span>
@@ -52,28 +56,22 @@
           </div>
         </div>
         <div class="progress-track" aria-hidden="true"><div id="progressBar"></div></div>
-
         <article class="panel question-card">
           <div id="qNumber" class="q-number">01</div>
           <div id="sectionLabel" class="section-label"></div>
           <h2 id="questionText"></h2>
-
           <div id="answers" class="answers"></div>
-
           <div class="answer-tools">
             <button id="clearRanking" class="secondary-btn" type="button">Clear choices <span class="key-mini">X</span></button>
             <button id="abstainBtn" class="secondary-btn" type="button">Abstain <span class="key-mini">Z</span></button>
           </div>
-
           <div id="rankingPreview" class="ranking-preview">No choices ranked yet.</div>
         </article>
-
         <div class="quiz-nav">
           <button id="backBtn" class="secondary-btn" type="button">Back</button>
           <button id="nextBtn" class="primary-btn" type="button">Next <span class="key-mini key-space">Space</span></button>
           <button id="quitBtn" class="secondary-btn" type="button">Restart</button>
         </div>
-
         <div class="keyboard-hint" aria-label="Keyboard shortcuts">
           <span><kbd>A</kbd><kbd>B</kbd><kbd>C</kbd><kbd>D</kbd> choose answers</span>
           <span><kbd>Space</kbd> next question</span>
@@ -99,13 +97,11 @@
             </div>
           </div>
         </article>
-
         <div class="result-grid-top">
           <section class="panel result-panel job-matches-panel">
             <div class="panel-head"><div><h3>Your Job Matches</h3><p>How well each 2nd Job fits you.</p></div><span id="rankingModeLabel"></span></div>
             <div id="leaderboard" class="leaderboard"></div>
           </section>
-
           <section class="panel result-panel playstyle-panel">
             <div class="panel-head playstyle-head">
               <div><h3>Your Playstyle</h3><p id="coverageText"></p></div>
@@ -114,23 +110,19 @@
             <div id="profileBars" class="profile-bars"></div>
           </section>
         </div>
-
         <section class="panel detail-panel">
           <div class="panel-head"><div><h3>Why This Job Fits</h3><p>The things you leaned toward most</p></div></div>
           <div id="winnerDetails" class="detail-list"></div>
         </section>
-
         <section class="panel detail-panel">
           <div class="panel-head"><div><h3>Your Road Through Maple World</h3><p>How the fit lines up from early game through your 2nd Job</p></div></div>
           <div id="progressionFit" class="progression-grid"></div>
         </section>
-
         <section class="panel detail-panel shared-stats-panel">
           <div class="panel-head"><div><h3>Maple World Results</h3><p id="sharedStatsMeta">See how often each 2nd Job has been the final match.</p></div><span class="panel-mark">COMMUNITY COUNTER</span></div>
           <div id="communityEligibility" class="community-eligibility"></div>
           <div id="sharedStats" class="shared-stats"></div>
         </section>
-
         <footer class="site-footer">
           <p>This result is a playstyle match, not a promise that one job is objectively best.</p>
           <div class="footer-actions">
@@ -141,11 +133,11 @@
       </section>
     </main>
   </div>
-
   <script src="questions.js"></script>
   <script src="classes.js"></script>
   <script src="config.js"></script>
   <script src="project-enhancements.js"></script>
+  <script src="community-rankings.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

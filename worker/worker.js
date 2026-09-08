@@ -32,29 +32,35 @@ export default {
     }
 
     if (url.pathname === '/result' && request.method === 'POST') {
+      if (configuredOrigin !== '*' && requestOrigin !== configuredOrigin) {
+        return json({ ok:false, error:'Origin not allowed.' }, headers, 403);
+      }
+
+      let body;
       try {
-        if (configuredOrigin !== '*' && requestOrigin !== configuredOrigin) {
-          return json({ ok:false, error:'Origin not allowed.' }, headers, 403);
-        }
+        body = await request.json();
+      } catch {
+        return json({ ok:false, error:'Invalid JSON.' }, headers, 400);
+      }
 
-        const body = await request.json();
-        const winner = typeof body.winner === 'string' ? body.winner : '';
-        const mode = String(body.mode ?? '');
-        const answered = Number(body.answered);
-        const clientKey = String(request.headers.get('X-Quiz-Client-Key') || '').trim();
+      const winner = typeof body?.winner === 'string' ? body.winner : '';
+      const mode = String(body?.mode ?? '');
+      const answered = Number(body?.answered);
+      const clientKey = String(request.headers.get('X-Quiz-Client-Key') || '').trim();
 
-        if (mode !== CURRENT_MODE) return json({ ok:false, error:'Unsupported quiz mode.' }, headers, 400);
-        if (!Number.isInteger(answered) || answered < COMMUNITY_MIN_ANSWERED || answered > COMMUNITY_MAX_ANSWERED) {
-          return json({ ok:false, error:'Incomplete result.' }, headers, 400);
-        }
-        if (!ALLOWED_WINNERS.has(winner)) return json({ ok:false, error:'Invalid result.' }, headers, 400);
-        if (!/^[A-Za-z0-9_-]{20,100}$/.test(clientKey)) {
-          return json({ ok:false, error:'Missing submission key.' }, headers, 400);
-        }
-        if (!env.CLIENT_RATE_LIMITER || !env.IP_RATE_LIMITER) {
-          return json({ ok:false, error:'Submission protection unavailable.' }, headers, 503);
-        }
+      if (mode !== CURRENT_MODE) return json({ ok:false, error:'Unsupported quiz mode.' }, headers, 400);
+      if (!Number.isInteger(answered) || answered < COMMUNITY_MIN_ANSWERED || answered > COMMUNITY_MAX_ANSWERED) {
+        return json({ ok:false, error:'Incomplete result.' }, headers, 400);
+      }
+      if (!ALLOWED_WINNERS.has(winner)) return json({ ok:false, error:'Invalid result.' }, headers, 400);
+      if (!/^[A-Za-z0-9_-]{20,100}$/.test(clientKey)) {
+        return json({ ok:false, error:'Missing submission key.' }, headers, 400);
+      }
+      if (!env.CLIENT_RATE_LIMITER || !env.IP_RATE_LIMITER) {
+        return json({ ok:false, error:'Submission protection unavailable.' }, headers, 503);
+      }
 
+      try {
         // Two accepted results/minute per anonymous browser key. This avoids
         // punishing multiple legitimate users who share one public IP.
         const clientLimited = await env.CLIENT_RATE_LIMITER.limit({ key: `result:${clientKey}` });
@@ -86,7 +92,9 @@ export default {
 
         return json({ ok:true }, headers, 200);
       } catch {
-        return json({ ok:false, error:'Invalid request.' }, headers, 400);
+        // A rate-limit or Analytics Engine failure is an infrastructure error,
+        // not a malformed client request. Do not mislabel it as HTTP 400.
+        return json({ ok:false, error:'Submission service unavailable.' }, headers, 503);
       }
     }
 

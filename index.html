@@ -35,6 +35,9 @@
           </svg>
           <span>Share</span>
         </button>
+        <button id="infoToggle" class="theme-toggle info-toggle" type="button" aria-label="Open v2.0 changelog" aria-haspopup="dialog" aria-expanded="false" title="Open v2.0 changelog">
+          <span class="info-toggle-icon" aria-hidden="true">ⓘ</span>
+        </button>
         <button id="themeToggle" class="theme-toggle" type="button" aria-label="Switch to night mode" aria-pressed="false" title="Switch to night mode">
           <span class="theme-icon theme-sun" aria-hidden="true">☀</span>
           <span class="theme-toggle-label">Day</span>
@@ -127,6 +130,39 @@
       </section>
     </main>
   </div>
+
+  <div id="infoModal" class="info-modal hidden" role="dialog" aria-modal="true" aria-labelledby="infoModalTitle" aria-hidden="true">
+    <div class="info-modal-backdrop" data-info-close></div>
+    <section class="info-modal-window" role="document">
+      <div class="info-modal-head">
+        <div>
+          <div class="info-modal-kicker">V2.0 CHANGELOG</div>
+          <h2 id="infoModalTitle">Quiz &amp; Community Rankings</h2>
+        </div>
+        <button id="infoModalClose" class="info-modal-close" type="button" aria-label="Close changelog" title="Close changelog">×</button>
+      </div>
+      <div class="info-modal-body">
+        <h3>What changed</h3>
+        <ul>
+          <li>Job scoring has been recalibrated for better balance.</li>
+          <li>Community rankings have been reset to <strong>0</strong>.</li>
+        </ul>
+
+        <h3>Why were the rankings reset?</h3>
+        <p>The previous results were collected using scoring that was not properly calibrated. Keeping those results would make the new community statistics inaccurate and unfair, so they have been excluded from the totals.</p>
+
+        <h3>Calibration test</h3>
+        <ul>
+          <li>Tested with <strong>10,000</strong> neutral profiles.</li>
+          <li>All 10 jobs fell within <strong>9.7%–10.3%</strong> of the results.</li>
+          <li>This is within the <strong>±0.3%</strong> fairness target.</li>
+        </ul>
+
+        <p class="info-modal-footer-note"><strong>v2.0 starts with a clean slate.</strong></p>
+      </div>
+    </section>
+  </div>
+
   <script src="questions.js"></script>
   <script src="classes.js"></script>
   <script src="config.js"></script>

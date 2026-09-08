@@ -2,6 +2,8 @@
 
 A playstyle quiz for MapleStory Classic World that helps you find the 2nd Job that best matches how you like to play.
 
+**Version: 2.0.0**
+
 ## Take the Quiz
 
 **[Start the MapleStory Classic World Job Quiz](https://strawberry91592.github.io/msclassicjobquiz/)**

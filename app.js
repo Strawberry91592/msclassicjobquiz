@@ -130,6 +130,7 @@
 
   function calculateResult() {
     const dimWeights = window.QUIZ_DIM_WEIGHTS || {};
+    const classCalibration = window.QUIZ_CLASS_SCORE_CALIBRATION || {};
     const userDims = Object.fromEntries(DIMS.map(dim => [dim, 0.5]));
     const userWeights = Object.fromEntries(DIMS.map(dim => [dim, 0]));
     let answered = 0;
@@ -160,7 +161,11 @@
         sum += (1 - Math.min(1, distance)) * weight;
         denominator += weight;
       });
-      scores[key] = denominator ? (sum / denominator) * 100 : 50;
+      const rawScore = denominator ? (sum / denominator) : 0.5;
+      const calibration = classCalibration[key] || {};
+      const scale = Number.isFinite(Number(calibration.scale)) ? Number(calibration.scale) : 1;
+      const offset = Number.isFinite(Number(calibration.offset)) ? Number(calibration.offset) : 0;
+      scores[key] = (rawScore * scale + offset) * 100;
     });
 
     return {scores, userDims, answered, rankedChoices, total: state.questions.length, activeDimensionCount: activeDims.length};
@@ -278,105 +283,109 @@
     if (!result.rankedChoices) return renderBeginner(result);
     if (result.answered < RECOMMENDATION_MIN_ANSWERED) return renderInsufficient(result);
 
-    const sorted = Object.entries(result.scores).sort((a, b) => b[1] - a[1]);
-    const [winnerKey, winnerScore] = sorted[0];
-    const winner = CLASS_DATA[winnerKey];
-    const eligible = result.answered >= COMMUNITY_MIN_ANSWERED;
+    const sorted = Object.keys(CLASS_DATA).sort((a, b) => result.scores[b] - result.scores[a]);
+    const winner = sorted[0];
+    const winnerClass = CLASS_DATA[winner];
+    const bestScore = result.scores[winner];
+    const secondScore = result.scores[sorted[1]];
+    const gap = Math.max(0, bestScore - secondScore);
+    const confidence = gap >= 8 ? 'Strong match' : gap >= 4 ? 'Good match' : 'Close match';
 
-    $('winnerFamily').textContent = winner.family.toUpperCase();
-    $('winnerName').textContent = winner.name;
-    $('winnerScore').textContent = `${winnerScore.toFixed(1)}% fit`;
-    $('winnerSummary').textContent = winner.summary;
-    $('ringScore').textContent = `${Math.round(winnerScore)}%`;
-    $('confidenceText').textContent = `${result.answered}/${result.total} questions answered • ${winnerScore - sorted[1][1] < 3 ? 'A close call' : 'Clear lead'} over the next match`;
+    $('winnerFamily').textContent = winnerClass.family;
+    $('winnerName').textContent = winnerClass.name;
+    $('winnerScore').textContent = `${bestScore.toFixed(0)}% fit`;
+    $('winnerSummary').textContent = winnerClass.summary;
+    $('ringScore').textContent = `${bestScore.toFixed(0)}%`;
+    $('confidenceText').textContent = `${confidence} • ${result.answered}/${result.total} questions answered`;
     $('rankingModeLabel').textContent = MODE_NAME.toUpperCase();
 
-    $('leaderboard').innerHTML = `<div class="job-match-grid">${sorted.map(([key, score], index) => {
+    $('leaderboard').innerHTML = sorted.map((key, index) => {
       const cls = CLASS_DATA[key];
-      const delta = winnerScore - score;
-      const note = index === 0 ? 'Your strongest match' : delta < 3 ? 'Very close to your result' : delta < 7 ? 'Close match' : 'Another possible fit';
-      const why = matchReasons(result, cls) || `Your overall preference profile was relatively close to ${cls.name}.`;
-      return `<article class="job-match-card ${index === 0 ? 'job-match-winner' : ''}">
-        <div class="job-match-rank">#${index + 1}</div>
-        <div class="job-match-body">
-          <div class="job-match-title"><h4>${cls.name}</h4><span>${cls.family}</span></div>
-          <div class="job-match-score"><strong>${score.toFixed(1)}%</strong><span>Match</span></div>
-          <div class="job-match-bar"><i style="width:${Math.min(100, Math.max(0, score))}%"></i></div>
-          <div class="job-match-note">${note}</div>
-          ${index > 0 && index < 4 ? `<details class="job-match-why"><summary>Why it was close</summary><p>${why}</p></details>` : ''}
-          ${index === 0 ? `<p class="job-match-description">${cls.summary}</p>` : ''}
-          ${guideMarkup(key)}
-        </div>
-      </article>`;
-    }).join('')}</div>`;
+      const score = result.scores[key];
+      const rankLabel = index === 0 ? 'BEST MATCH' : `#${index + 1}`;
+      return `<div class="leader-row ${index === 0 ? 'leader-row-best' : ''}"><div class="leader-rank">${rankLabel}</div><div class="leader-copy"><strong>${cls.name}</strong><span>${cls.family}</span><div class="leader-meter"><i style="width:${Math.max(0, Math.min(100, score))}%"></i></div>${guideMarkup(key)}</div><div class="leader-score">${score.toFixed(0)}%</div></div>`;
+    }).join('');
 
-    const strongest = DIMS.map(dim => ({dim, signal: Math.abs(result.userDims[dim] - 0.5)}))
-      .filter(item => item.signal > 0.08).sort((a, b) => b.signal - a.signal).slice(0, 5)
-      .map(item => `<span>${DIM_LABELS[item.dim]}</span>`).join('');
-
-    $('winnerDetails').innerHTML = `<div class="detail-item"><strong>The things you leaned toward</strong><div class="tag-row">${strongest || '<span>Not enough preference signals yet.</span>'}</div></div><div class="detail-item"><strong>What that looks like on this job</strong><ul class="detail-bullets">${winner.notes.map(note => `<li>${note}</li>`).join('')}</ul></div><div class="detail-item tradeoff-card"><strong>The catch</strong><p>${winner.dims.close > 0.75 ? 'You will spend plenty of time in close quarters.' : 'You are not tied to close-quarters fighting.'} ${winner.dims.economy > 0.75 ? 'Mesos and upkeep matter more than they do for most paths.' : 'The job does not lean heavily on money management.'} ${winner.dims.party > 0.75 ? 'Party play is a big part of what makes this path shine.' : 'You can get a lot out of this job on your own.'}</p></div>`;
-
+    $('winnerDetails').innerHTML = `<div class="detail-item"><strong>Why it fits</strong><p>${matchReasons(result, winnerClass) || 'Your answers produced a broad match across several playstyle dimensions.'}</p></div><div class="detail-item tradeoff-card"><strong>Trade-off</strong><p>${winnerClass.notes[2] || winnerClass.notes[0]}</p></div>`;
     const eligibility = $('communityEligibility');
-    eligibility.className = `community-eligibility ${eligible ? 'eligible' : 'ineligible'}`;
-    eligibility.innerHTML = eligible
-      ? '<strong>Community Results: Counted</strong><span>Your result has been included in the community totals.</span>'
-      : `<strong>Community Results: Not counted</strong><span>At least ${COMMUNITY_MIN_ANSWERED} questions must have a ranked answer before a result is added to the community totals.</span>`;
-
+    eligibility.className = 'community-eligibility eligible';
+    eligibility.innerHTML = `<strong>Community Results: Counted</strong><span>Your ${result.answered}-answer result is eligible for aggregate community totals.</span>`;
+    submitResult(winner, result.answered);
+    refreshSharedStats();
     hide($('quiz')); show($('results'));
-    renderSharedStats();
-    submitResult(winnerKey, result.answered);
     window.scrollTo({top: 0, behavior: 'smooth'});
   }
 
-  function next() {
+  function nextQuestion() {
     if (state.index < state.questions.length - 1) {
       state.index++;
       renderQuestion();
       keepQuizNavVisible();
-    } else renderResults();
+      return;
+    }
+    renderResults();
   }
 
-  function start() {
+  function previousQuestion() {
+    if (state.index > 0) {
+      state.index--;
+      renderQuestion();
+      keepQuizNavVisible();
+    }
+  }
+
+  function clearChoices() {
+    state.answers[state.index].ranked = [];
+    state.answers[state.index].abstained = false;
+    renderQuestion();
+  }
+
+  function abstain() {
+    const answer = state.answers[state.index];
+    answer.ranked = [];
+    answer.abstained = !answer.abstained;
+    renderQuestion();
+  }
+
+  function restart() {
     resetState();
-    hide($('results'));
-    show($('quiz'));
+    hide($('results')); show($('quiz'));
     renderQuestion();
     window.scrollTo({top: 0, behavior: 'smooth'});
   }
 
-  document.addEventListener('keydown', event => {
-    if ($('quiz').classList.contains('hidden')) return;
-    const target = document.activeElement;
-    if (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return;
-    const key = event.key.toUpperCase();
-    if (/^[A-D]$/.test(key)) {
-      const q = state.questions[state.index];
-      if (q?.options.some(([letter]) => letter === key)) { event.preventDefault(); toggleRank(key); }
-      return;
-    }
-    if (key === 'Z') {
-      event.preventDefault();
-      const answer = state.answers[state.index];
-      answer.ranked = [];
-      answer.abstained = !answer.abstained;
-      renderQuestion();
-      return;
-    }
-    if (key === 'X') {
-      event.preventDefault();
-      state.answers[state.index] = {ranked: [], abstained: false};
-      renderQuestion();
-      return;
-    }
-    if (event.code === 'Space') { event.preventDefault(); next(); }
-  });
+  function bindNavigation() {
+    $('nextBtn')?.addEventListener('click', nextQuestion);
+    $('backBtn')?.addEventListener('click', previousQuestion);
+    $('clearRanking')?.addEventListener('click', clearChoices);
+    $('abstainBtn')?.addEventListener('click', abstain);
+    $('quitBtn')?.addEventListener('click', restart);
+    $('retakeBtn')?.addEventListener('click', restart);
+    document.addEventListener('keydown', event => {
+      if (event.target?.matches?.('input, textarea, select')) return;
+      const key = event.key.toLowerCase();
+      if (key === ' ') {
+        event.preventDefault();
+        if (!$('results').classList.contains('hidden')) restart();
+        else nextQuestion();
+      }
+      if (['a','b','c','d'].includes(key) && !$('results').classList.contains('hidden') === false) return;
+      if (['a','b','c','d'].includes(key) && !$('results').classList.contains('hidden')) return;
+      if (['a','b','c','d'].includes(key)) toggleRank(key.toUpperCase());
+      if (key === 'z' && $('results').classList.contains('hidden')) abstain();
+      if (key === 'x' && $('results').classList.contains('hidden')) clearChoices();
+      if (key === 'arrowleft' && $('results').classList.contains('hidden')) previousQuestion();
+      if (key === 'arrowright' && $('results').classList.contains('hidden')) nextQuestion();
+    });
+  }
 
-  initTheme();
-  $('clearRanking').addEventListener('click', () => { state.answers[state.index] = {ranked: [], abstained: false}; renderQuestion(); });
-  $('abstainBtn').addEventListener('click', () => { const answer = state.answers[state.index]; answer.ranked = []; answer.abstained = !answer.abstained; renderQuestion(); });
-  $('backBtn').addEventListener('click', () => { if (state.index > 0) { state.index--; renderQuestion(); window.scrollTo({top: 0, behavior: 'smooth'}); } });
-  $('nextBtn').addEventListener('click', next);
-  $('quitBtn').addEventListener('click', () => { if (confirm('Restart and clear your current answers?')) start(); });
-  $('retakeBtn').addEventListener('click', start);
-  start();
+  function init() {
+    resetState();
+    bindNavigation();
+    initTheme();
+    renderQuestion();
+    renderSharedStats();
+  }
+
+  init();
 })();

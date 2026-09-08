@@ -14,7 +14,7 @@ jobs:
       - name: Checkout exact triggering revision
         uses: actions/checkout@v6
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 1
 
       - name: Set up Node

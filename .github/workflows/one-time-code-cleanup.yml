@@ -56,7 +56,6 @@ jobs:
                           return text[:start] + text[i + 1:]
               raise SystemExit(f'Unbalanced CSS rule: {selector!r}')
 
-          # index.html: delete the Road section and any old standalone stats workaround include.
           path = 'index.html'
           text = read(path)
           road_start = '        <section class="panel detail-panel">\n          <div class="panel-head"><div><h3>Your Road Through Maple World</h3>'
@@ -64,8 +63,6 @@ jobs:
           text = text.replace('\n  <script src="beginner-stats-fix.js"></script>', '')
           write(path, text)
 
-          # app.js: delete both progression renderers, dead alternatives handling, and obsolete
-          # mode-modal compatibility. Beginner uses the same live stats fetch as other results.
           path = 'app.js'
           text = read(path)
           text = text.replace("    hide($('modeModal'));\n", '', 1)
@@ -92,7 +89,6 @@ jobs:
           text = text.replace(old_stats, new_stats, 1)
           write(path, text)
 
-          # classes.js: remove only the 10 class progression metadata objects; preserve all scoring data.
           path = 'classes.js'
           original = read(path)
           boundary = ';\nwindow.QUIZ_DIMS'
@@ -107,12 +103,6 @@ jobs:
               del cls['road']
           write(path, prefix + 'window.CLASS_DATA = ' + json.dumps(data, separators=(',', ':'), ensure_ascii=False) + boundary + suffix)
 
-          # project-enhancements.js was already source-cleaned; do not alter active enhancements here.
-          if any(token in read('project-enhancements.js') for token in ('openingCommunity', 'ensureOpeningPanel', 'JOB_ORDER')):
-              raise SystemExit('Unexpected stale opening-community enhancement code remains')
-
-          # styles.css: remove the complete legacy mode modal block, its responsive remainder,
-          # and all progression-specific rules.
           path = 'styles.css'
           text = read(path)
           start = text.find('.modal-backdrop{')
@@ -123,11 +113,13 @@ jobs:
           if end < 0:
               raise SystemExit('Malformed modal CSS block')
           text = text[:start] + text[end + 1:]
-          # The base modal block also had a responsive tail later in the stylesheet.
-          text = remove_css_rule(text, '.modal-backdrop')
-          text = remove_css_rule(text, '.mode-grid')
+          # Remove the responsive modal rules before checking the final source.
+          for selector in ('.modal-backdrop', '.mode-grid'):
+              if selector + '{' in text:
+                  text = remove_css_rule(text, selector)
           for selector in ('.progression-grid', '.stage h4', '.stage p'):
-              text = remove_css_rule(text, selector)
+              if selector + '{' in text:
+                  text = remove_css_rule(text, selector)
           text = text.replace('.eyebrow,.mode-kicker,.section-label{', '.eyebrow,.section-label{')
           text = text.replace('.detail-list,.progression-grid,.shared-stats{', '.detail-list,.shared-stats{')
           text = text.replace('.detail-item,.stage,.stats-row,.community-eligibility{', '.detail-item,.stats-row,.community-eligibility{')
@@ -138,7 +130,6 @@ jobs:
           text = text.replace('body.night-mode .mode-card,', '')
           write(path, text)
 
-          # Add a regression that checks the removed section is absent from the actual page.
           path = 'tests/e2e/quiz.spec.js'
           text = read(path)
           if 'results omit the redundant progression section' not in text:
@@ -149,8 +140,6 @@ jobs:
               text = text.replace(marker, regression + marker, 1)
           write(path, text)
 
-          # This helper has served its purpose. Delete it so the permanent repository contains
-          # only the real application/test code.
           Path('.github/workflows/one-time-code-cleanup.yml').unlink(missing_ok=True)
 
           forbidden = {
@@ -167,11 +156,8 @@ jobs:
               for needle in needles:
                   if needle in source:
                       raise SystemExit(f'Obsolete source remains: {needle!r} in {file}')
-
-          app = read('app.js')
-          if "refreshSharedStats();\n    hide($('quiz')); show($('results'));" not in app:
+          if "refreshSharedStats();\n    hide($('quiz')); show($('results'));" not in read('app.js'):
               raise SystemExit('Beginner result does not directly refresh community stats')
-
           print('Source cleanup validation passed.')
           PY
 
@@ -185,4 +171,4 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
           git commit -m 'Remove redundant progression and dead result code'
-          git push
+          git push origin HEAD:main

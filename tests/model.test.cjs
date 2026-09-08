@@ -175,10 +175,9 @@ for (const classKey of classKeys) {
   assert.equal(winner(result.scores), classKey, `Synthetic answer fingerprint for ${classKey} does not recover the intended class.`);
 }
 
-// Neutral random responses are used only as a structural dominance check. Equal class
-// percentages are not expected: random answer patterns can legitimately favor some profiles.
-// The regression therefore checks that no single class dominates the space and that the top
-// two classes do not absorb most neutral profiles.
+// Uniform-neutral regression: the answer space itself must not make any of the ten jobs
+// structurally more or less reachable. The fixed-seed sample is exactly 10,000 uniformly
+// random single-choice profiles, so a passing model must produce exactly 1,000 winners per job.
 let seed = 0x9e3779b9;
 function random() {
   seed ^= seed << 13;
@@ -187,19 +186,15 @@ function random() {
   return ((seed >>> 0) / 0x100000000);
 }
 const iterations = 10000;
+const expectedPerClass = iterations / classKeys.length;
 const counts = Object.fromEntries(classKeys.map(key => [key, 0]));
 for (let i = 0; i < iterations; i += 1) {
   const answers = questions.map(() => [String.fromCharCode(65 + Math.floor(random() * 4))]);
   const result = calculateScoresFromAnswers(answers);
   counts[winner(result.scores)] += 1;
 }
-const proportions = classKeys.map(key => counts[key] / iterations);
-const sortedProportions = [...proportions].sort((a, b) => b - a);
-const maxProportion = sortedProportions[0];
-const topTwoProportion = sortedProportions[0] + sortedProportions[1];
-const activeClasses = proportions.filter(value => value >= 0.01).length;
-assert.ok(maxProportion <= 0.45, `Structural class bias detected: one class wins more than 45% of neutral random profiles. Counts: ${JSON.stringify(counts)}`);
-assert.ok(topTwoProportion <= 0.70, `Structural class bias detected: the top two classes win more than 70% of neutral random profiles. Counts: ${JSON.stringify(counts)}`);
-assert.ok(activeClasses >= 5, `Structural class bias detected: fewer than five jobs win at least 1% of neutral random profiles. Counts: ${JSON.stringify(counts)}`);
+for (const key of classKeys) {
+  assert.equal(counts[key], expectedPerClass, `Uniform-neutral fairness regression failed for ${key}: expected exactly ${expectedPerClass} / ${iterations}, got ${counts[key]}. Full counts: ${JSON.stringify(counts)}`);
+}
 
-console.log(`Scoring model checks passed: ${questions.length} neutral questions, 10 jobs, ${dimKeys.length} dimensions, balanced weights, all ten synthetic class fingerprints recover correctly, and no severe neutral-response class dominance. Winner distribution: ${JSON.stringify(counts)}`);
+console.log(`Scoring model checks passed: ${questions.length} neutral questions, 10 jobs, ${dimKeys.length} dimensions, balanced weights, all ten synthetic class fingerprints recover correctly, and uniform-neutral winners are exactly 10% per job. Winner distribution: ${JSON.stringify(counts)}`);

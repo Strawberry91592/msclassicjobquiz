@@ -18,9 +18,9 @@ const vectors = context.window.QUIZ_OPTION_VECTORS;
 const enhancements = fs.readFileSync(path.join(root, 'project-enhancements.js'), 'utf8');
 
 assert.equal(questions.length, 48, 'The quiz must contain exactly 48 questions.');
-assert.deepEqual(
-  questions.map(q => q.id),
-  Array.from({ length: 48 }, (_, i) => i + 1),
+assert.equal(
+  JSON.stringify(questions.map(q => q.id)),
+  JSON.stringify(Array.from({ length: 48 }, (_, i) => i + 1)),
   'Question IDs must be a unique 1..48 sequence.'
 );
 

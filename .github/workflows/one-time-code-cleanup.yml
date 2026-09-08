@@ -63,9 +63,6 @@ jobs:
           if count != 1:
               raise SystemExit('Expected dead alternatives block in app.js')
           text, count = re.subn(
-              r"    renderSharedStats\(\);\n    hide\(\$('quiz'\)\); show\(\$('results'\);", '', text, count=0)
-          # Replace only the Beginner call site by anchoring it to the subsequent hide(results) line.
-          text, count = re.subn(
               r"    renderSharedStats\(\);\n    hide\(\$('quiz'\)\); show\(\$('results'\)\);",
               "    refreshSharedStats();\n    hide($('quiz')); show($('results'));",
               text,
@@ -83,13 +80,10 @@ jobs:
               raise SystemExit(f'Expected 10 road metadata blocks in classes.js, removed {count}')
           write(path, text)
 
-          # project-enhancements.js is already cleaned on current main; fail only if stale opening code remains.
-          path = 'project-enhancements.js'
-          text = read(path)
-          stale = ('openingCommunity', 'ensureOpeningPanel', 'JOB_ORDER')
-          if any(token in text for token in stale):
-              raise SystemExit('Stale opening-community enhancement code is still present in project-enhancements.js')
-          write(path, text)
+          # project-enhancements.js no longer contains the obsolete opening-community implementation;
+          # leave its active guide-link and stats-readback code untouched.
+          if any(token in read('project-enhancements.js') for token in ('openingCommunity', 'ensureOpeningPanel', 'JOB_ORDER')):
+              raise SystemExit('Unexpected stale opening-community code remains in project-enhancements.js')
 
           # styles.css: remove modal and progression styles that no longer have DOM users.
           path = 'styles.css'
@@ -107,11 +101,12 @@ jobs:
               ('body.night-mode .mode-card,', ''),
           ]:
               text = text.replace(old, new)
-          for selector in (r'\.progression-grid\{[^}]*\}', r'\.stage h4\{[^}]*\}', r'\.stage p\{[^}]*\}'):
-              text = re.sub(selector, '', text, count=1)
+          text = re.sub(r'\.progression-grid\{[^}]*\}', '', text, count=1)
+          text = re.sub(r'\.stage h4\{[^}]*\}', '', text, count=1)
+          text = re.sub(r'\.stage p\{[^}]*\}', '', text, count=1)
           write(path, text)
 
-          # tests/e2e: protect the removal from regression.
+          # tests/e2e: explicitly protect the removal from regression.
           path = 'tests/e2e/quiz.spec.js'
           text = read(path)
           marker = "test('results-page community rankings reuse the compact popup layout', async ({ page }) => {"
@@ -122,11 +117,10 @@ jobs:
               text = text.replace(marker, test_block + marker, 1)
           write(path, text)
 
-          # Remove the standalone workaround file. It is now unnecessary because app.js owns the stats refresh.
-          fix = Path('beginner-stats-fix.js')
-          if fix.exists():
-              fix.unlink()
+          # Delete the standalone workaround now that the main application owns the flow.
+          Path('beginner-stats-fix.js').unlink(missing_ok=True)
 
+          # Final source-level assertions: no hidden/band-aid remnants remain.
           checks = {
               'index.html': ['Your Road Through Maple World', 'progressionFit', 'beginner-stats-fix.js'],
               'app.js': ['progressionFit', "hide($('modeModal'))", "const alternatives = $('alternatives')"],
@@ -149,6 +143,6 @@ jobs:
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add index.html app.js classes.js project-enhancements.js styles.css tests/e2e/quiz.spec.js beginner-stats-fix.js .github/workflows/one-time-code-cleanup.yml
+          git add index.html app.js classes.js styles.css tests/e2e/quiz.spec.js beginner-stats-fix.js .github/workflows/one-time-code-cleanup.yml
           git commit -m 'Remove redundant progression and dead result code'
           git push

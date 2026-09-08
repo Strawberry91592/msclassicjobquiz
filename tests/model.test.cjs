@@ -10,14 +10,23 @@ function scoreRow(ans){const u=Object.fromEntries(D.map(d=>[d,.5])),ew=Object.fr
 let seed=0x9e3779b9;function rnd(){seed^=seed<<13;seed^=seed>>>17;seed^=seed<<5;return(seed>>>0)/0x100000000;}
 const N=10000,rows=Array.from({length:N},()=>scoreRow(Q.map(()=>[String.fromCharCode(65+Math.floor(rnd()*4))])));
 const pars={};for(const k of K){let m=0;for(const r of rows)m+=r[k];m/=N;let v=0;for(const r of rows)v+=(r[k]-m)**2;pars[k]={mean:m,sd:Math.sqrt(v/N)||1};}
+const zRows=rows.map(r=>Object.fromEntries(K.map(k=>[k,(r[k]-pars[k].mean)/pars[k].sd])));
 const offsets=Object.fromEntries(K.map(k=>[k,0]));
-function counts(){const c=Object.fromEntries(K.map(k=>[k,0]));for(const r of rows){let bk=K[0],bv=(r[bk]-pars[bk].mean)/pars[bk].sd+offsets[bk];for(let i=1;i<K.length;i++){const k=K[i],v=(r[k]-pars[k].mean)/pars[k].sd+offsets[k];if(v>bv){bv=v;bk=k;}}c[bk]++;}return c;}
-function loss(c){return K.reduce((s,k)=>s+(c[k]-1000)**2,0);}
-let best=counts(),L=loss(best);console.log('START',JSON.stringify(best),'LOSS',L);
-const steps=[.50,.20,.10,.05,.02,.01,.005,.002,.001,.0005,.0002,.0001];
-for(let pass=0;pass<80&&L>0;pass++){let changed=false;for(const k of K){let local=offsets[k],localC=best,localL=L;for(const step of steps){for(const dir of [1,-1]){const x=local+dir*step;offsets[k]=x;const c=counts(),l=loss(c);if(l<localL){local=x;localC=c;localL=l;}}offsets[k]=local;}if(localL<L){offsets[k]=local;best=localC;L=localL;changed=true;}else offsets[k]=local;}
- console.log('PASS',pass,'LOSS',L,'COUNTS',JSON.stringify(best),'OFFSETS',JSON.stringify(offsets));
- if(!changed)break;
+function winnerCounts(){const c=Object.fromEntries(K.map(k=>[k,0]));for(const r of zRows){let best=K[0],bv=r[best]+offsets[best];for(let i=1;i<K.length;i++){const k=K[i],v=r[k]+offsets[k];if(v>bv){bv=v;best=k;}}c[best]++;}return c;}
+function tuneOne(k,target=1000){const thresholds=[];for(const r of zRows){let other=-Infinity;for(const j of K)if(j!==k){const v=r[j]+offsets[j];if(v>other)other=v;}thresholds.push(other-r[k]);}
+ thresholds.sort((a,b)=>a-b);
+ let idx=Math.min(N-1,Math.max(0,target));
+ // Choose just above the target boundary so the target class wins approximately target cases.
+ const base=thresholds[idx];
+ offsets[k]=Number.isFinite(base)?base+1e-9:0;
 }
-console.log('FINAL_OFFSETS',JSON.stringify(offsets));console.log('FINAL_COUNTS',JSON.stringify(best));
-if(K.some(k=>best[k]<970||best[k]>1030))process.exitCode=1;
+let counts=winnerCounts();console.log('START',JSON.stringify(counts));
+for(let pass=0;pass<30;pass++){
+  for(const k of K)tuneOne(k,1000);
+  counts=winnerCounts();
+  const maxDev=Math.max(...K.map(k=>Math.abs(counts[k]-1000)));
+  console.log('PASS',pass,'MAXDEV',maxDev,'COUNTS',JSON.stringify(counts),'OFFSETS',JSON.stringify(offsets));
+  if(K.every(k=>counts[k]>=970&&counts[k]<=1030))break;
+}
+console.log('FINAL_OFFSETS',JSON.stringify(offsets));console.log('FINAL_COUNTS',JSON.stringify(counts));
+if(K.some(k=>counts[k]<970||counts[k]>1030))process.exitCode=1;

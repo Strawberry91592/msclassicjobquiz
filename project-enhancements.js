@@ -3,7 +3,7 @@
 (() => {
   const approvedQuestions = {
     10: {
-      text: 'You are fighting monsters that are giving you trouble. What would you rather have?',
+      text: 'You are fighting monsters that are giving me trouble. What would you rather have?',
       options: [
         ['A', 'A stronger attack that can bring them down faster.'],
         ['B', 'A way to attack them without getting too close.'],
@@ -94,20 +94,18 @@
   });
 
   window.QUIZ_JOB_GUIDES = {
-    Fighter:[['Lv. 1–30','https://meowdb.com/msclassic/guides/warrior-class-guide'],['Lv. 30–70','https://meowdb.com/msclassic/guides/fighter-class-guide']],
-    Page:[['Lv. 1–30','https://meowdb.com/msclassic/guides/warrior-class-guide'],['Lv. 30–70','https://meowdb.com/msclassic/guides/page-class-guide']],
-    Spearman:[['Lv. 1–30','https://meowdb.com/msclassic/guides/warrior-class-guide'],['Lv. 30–70','https://meowdb.com/msclassic/guides/spearman-class-guide']],
-    'F/P Wizard':[['Lv. 1–30','https://meowdb.com/msclassic/guides/magician-class-guide'],['Lv. 30–70','https://meowdb.com/msclassic/guides/fp-wizard-class-guide']],
-    'I/L Wizard':[['Lv. 1–30','https://meowdb.com/msclassic/guides/magician-class-guide'],['Lv. 30–70','https://meowdb.com/msclassic/guides/il-wizard-class-guide']],
-    Cleric:[['Lv. 1–30','https://meowdb.com/msclassic/guides/magician-class-guide'],['Lv. 30–70','https://meowdb.com/msclassic/guides/cleric-class-guide']],
-    Hunter:[['Lv. 1–30','https://meowdb.com/msclassic/guides/bowman-leveling-guide-1-30'],['Lv. 30–70','https://meowdb.com/msclassic/guides/hunter-class-guide']],
-    Crossbowman:[['Lv. 1–30','https://meowdb.com/msclassic/guides/bowman-leveling-guide-1-30'],['Lv. 30–70','https://meowdb.com/msclassic/guides/crossbowman-class-guide']],
-    Assassin:[['Lv. 1–30','https://meowdb.com/msclassic/guides/thief-class-guide'],['Lv. 30–70','https://meowdb.com/msclassic/guides/assassin-class-guide']],
-    Bandit:[['Lv. 1–30','https://meowdb.com/msclassic/guides/thief-class-guide'],['Lv. 30–70','https://meowdb.com/msclassic/guides/bandit-class-guide']]
+    fighter:[['Lv. 1–30','https://meowdb.com/msclassic/guides/warrior-class-guide'],['Lv. 30–70','https://meowdb.com/msclassic/guides/fighter-class-guide']],
+    page:[['Lv. 1–30','https://meowdb.com/msclassic/guides/warrior-class-guide'],['Lv. 30–70','https://meowdb.com/msclassic/guides/page-class-guide']],
+    spearman:[['Lv. 1–30','https://meowdb.com/msclassic/guides/warrior-class-guide'],['Lv. 30–70','https://meowdb.com/msclassic/guides/spearman-class-guide']],
+    fp:[['Lv. 1–30','https://meowdb.com/msclassic/guides/magician-class-guide'],['Lv. 30–70','https://meowdb.com/msclassic/guides/fp-wizard-class-guide']],
+    il:[['Lv. 1–30','https://meowdb.com/msclassic/guides/magician-class-guide'],['Lv. 30–70','https://meowdb.com/msclassic/guides/il-wizard-class-guide']],
+    cleric:[['Lv. 1–30','https://meowdb.com/msclassic/guides/magician-class-guide'],['Lv. 30–70','https://meowdb.com/msclassic/guides/cleric-class-guide']],
+    hunter:[['Lv. 1–30','https://meowdb.com/msclassic/guides/bowman-leveling-guide-1-30'],['Lv. 30–70','https://meowdb.com/msclassic/guides/hunter-class-guide']],
+    crossbow:[['Lv. 1–30','https://meowdb.com/msclassic/guides/bowman-leveling-guide-1-30'],['Lv. 30–70','https://meowdb.com/msclassic/guides/crossbowman-class-guide']],
+    assassin:[['Lv. 1–30','https://meowdb.com/msclassic/guides/thief-class-guide'],['Lv. 30–70','https://meowdb.com/msclassic/guides/assassin-class-guide']],
+    bandit:[['Lv. 1–30','https://meowdb.com/msclassic/guides/thief-class-guide'],['Lv. 30–70','https://meowdb.com/msclassic/guides/bandit-class-guide']]
   };
 
-  // Analytics Engine writes are non-blocking. A just-accepted submission can be
-  // temporarily absent from the read path, so retry an immediately-empty GET.
   const statsUrl=()=>String(window.STATS_API_URL||'').replace(/\/$/,'');
   const nativeFetch=window.fetch.bind(window);
   let acceptedSubmissionUntil=0;
@@ -138,6 +136,37 @@
     }
     return nativeFetch(input,init);
   };
+
+  const refreshUncountedStats=async()=>{
+    const eligibility=document.getElementById('communityEligibility');
+    const label=document.getElementById('sharedStatsMeta');
+    const panel=document.getElementById('sharedStats');
+    const base=statsUrl();
+    if(!eligibility||!label||!panel||!base||!eligibility.textContent.includes('Not counted')) return;
+    try{
+      const response=await window.fetch(`${base}/stats`,{cache:'no-store'});
+      if(!response.ok) return;
+      const data=await response.json();
+      if(!data?.ok) return;
+      const total=Number(data.total||0);
+      label.textContent=`${total} completed quizzes counted`;
+      const sorted=Object.keys(window.CLASS_DATA||{}).sort((a,b)=>(data.totals?.[b]||0)-(data.totals?.[a]||0));
+      panel.innerHTML=`<div class="stats-note">These are aggregate quiz completions. No quiz answers or personal details are stored.</div>`+sorted.map((key,i)=>{
+        const count=Number(data.totals?.[key]||0);
+        const pct=total?(count/total*100):0;
+        const cls=window.CLASS_DATA[key];
+        return `<div class="stats-row"><div class="stats-rank">${i+1}</div><div class="stats-job"><strong>${cls.name}</strong><span>${cls.family}</span><div class="stats-meter"><i style="width:${Math.min(100,pct)}%"></i></div></div><div class="stats-number"><b>${count}</b><span>${pct.toFixed(1)}%</span></div></div>`;
+      }).join('');
+    }catch(_){
+      // The normal app-side stats renderer remains responsible for hard failures.
+    }
+  };
+
+  const eligibility=document.getElementById('communityEligibility');
+  if(eligibility){
+    const observer=new MutationObserver(refreshUncountedStats);
+    observer.observe(eligibility,{childList:true,subtree:true});
+  }
 
   const style=document.createElement('style');
   style.textContent=`

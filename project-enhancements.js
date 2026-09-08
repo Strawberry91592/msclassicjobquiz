@@ -131,13 +131,14 @@
 
     cards.forEach(card=>{
       const label=card.querySelector('.signal-top strong')?.textContent?.trim() || 'Playstyle signal';
-      const interpretation=card.querySelector('.signal-top span')?.textContent?.trim() || '';
       const userPct=card.querySelector('.signal-values b')?.textContent?.trim() || '0%';
       const jobPct=card.querySelector('.signal-values span')?.textContent?.trim() || '0%';
       const jobName=card.querySelectorAll('.signal-values em')[1]?.textContent?.trim() || 'Your job';
-      const delta=Math.abs(Number.parseInt(userPct,10)||0-(Number.parseInt(jobPct,10)||0));
+      const userValue=Number.parseInt(userPct,10) || 0;
+      const jobValue=Number.parseInt(jobPct,10) || 0;
+      const delta=Math.abs(userValue-jobValue);
       const interpretationText = delta < 8 ? 'Very similar preference' :
-        (Number.parseInt(userPct,10)||0) > (Number.parseInt(jobPct,10)||0 ? 'You prefer this more' : `${jobName} leans higher`);
+        userValue > jobValue ? 'You prefer this more' : `${jobName} leans higher`;
 
       card.innerHTML=`
         <div class="signal-heading">

@@ -54,6 +54,43 @@ test('completing all 48 questions produces a 2nd Job result', async ({ page }) =
   await expect(page.locator('.job-match-card')).toHaveCount(10);
 });
 
+test('24 answered questions do not produce a Job recommendation', async ({ page }) => {
+  const posts = [];
+  await page.route('**/result', async route => {
+    posts.push(JSON.parse(route.request().postData() || '{}'));
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) });
+  });
+  await page.route('**/stats', async route => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, total: 0, totals: {} }) });
+  });
+  await page.goto('/index.html');
+  await advanceToResults(page, 24);
+  await expect(page.locator('#winnerName')).toHaveText('Not enough answers');
+  await expect(page.locator('#winnerScore')).toHaveText('No Job match yet');
+  await expect(page.locator('#confidenceText')).toContainText('24/48 questions answered');
+  await expect(page.locator('#leaderboard .job-match-card')).toHaveCount(0);
+  await expect(page.locator('#leaderboard')).toContainText('Your result is not ready yet.');
+  await expect(page.locator('#communityEligibility')).toContainText('Not counted');
+  expect(posts).toHaveLength(0);
+});
+
+test('25 answered questions unlock a Job recommendation but remain outside community counting', async ({ page }) => {
+  const posts = [];
+  await page.route('**/result', async route => {
+    posts.push(JSON.parse(route.request().postData() || '{}'));
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) });
+  });
+  await page.route('**/stats', async route => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, total: 0, totals: {} }) });
+  });
+  await page.goto('/index.html');
+  await advanceToResults(page, 25);
+  await expect(page.locator('#winnerName')).not.toHaveText('Beginner');
+  await expect(page.locator('.job-match-card')).toHaveCount(10);
+  await expect(page.locator('#communityEligibility')).toContainText('Not counted');
+  expect(posts).toHaveLength(0);
+});
+
 test('29 answered questions are not counted', async ({ page }) => {
   const posts = [];
   await page.route('**/result', async route => {
@@ -151,7 +188,7 @@ test('results-page community rankings reuse the compact popup layout', async ({ 
   await expect(rows.first()).toContainText('Assassin');
 
   const firstLayout = await rows.nth(0).evaluate(el => getComputedStyle(el).gridColumn);
-  expect(firstLayout).toBe('1 / -1');
+  expect(firstLayout).toBe('1 / -1';
 
   const boxes = await rows.nth(1).boundingBox();
   const nextBox = await rows.nth(2).boundingBox();

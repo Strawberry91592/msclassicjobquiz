@@ -3,7 +3,7 @@
 (() => {
   const approvedQuestions = {
     10: {
-      text: 'You are fighting monsters that are giving me trouble. What would you rather have?',
+      text: 'You are fighting monsters that are giving you trouble. What would you rather have?',
       options: [
         ['A', 'A stronger attack that can bring them down faster.'],
         ['B', 'A way to attack them without getting too close.'],

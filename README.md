@@ -29,11 +29,11 @@ This project is released under the **MIT License**. See [LICENSE](LICENSE).
 - Questions and class data are kept separate from the application logic so the scoring model can be reviewed independently.
 
 ## Community result counter
-The community counter uses a Cloudflare Worker with Workers Analytics Engine. The browser sends only the winning job key, quiz mode, and answered-question count. The Worker validates all three values before recording an aggregate event.
+The community counter uses a Cloudflare Worker with Workers Analytics Engine. The browser sends only the winning job key, quiz mode, and answered-question count; an anonymous browser throttle key is sent in a separate header and is not stored as quiz data. The Worker validates the quiz values before recording an aggregate event.
 
-The public result endpoint also has backend rate limiting: at most two accepted submissions per minute per transient client IP key. This is abuse mitigation, not an exact vote-integrity system; Cloudflare documents that Workers Rate Limiting is eventually consistent and local to the Cloudflare location handling the request.
+The public result endpoint uses two server-side rate-limit layers: at most two accepted submissions per minute for one anonymous browser key, plus a broader twenty-attempts-per-minute ceiling for the request's temporary IP-based rate-limit key. The browser key handles normal per-browser throttling without penalizing unrelated users who share an IP; the IP ceiling limits trivial bypass by generating fresh browser keys. This is abuse mitigation, not an exact vote-integrity system; Cloudflare documents that Workers Rate Limiting is eventually consistent and local to the Cloudflare location handling the request.
 
-No IP address is written to Analytics Engine. The IP is used only as the temporary key for the Cloudflare rate-limit binding.
+Neither the browser key nor the IP address is written to Analytics Engine. The IP is used only as a transient rate-limit key, and the browser key is stored locally by the browser to make the per-browser limit stable.
 
 See [STATS_SETUP.md](STATS_SETUP.md) for deployment and Cloudflare configuration details.
 
@@ -41,7 +41,8 @@ See [STATS_SETUP.md](STATS_SETUP.md) for deployment and Cloudflare configuration
 The repository contains two layers of automated checks:
 
 - `npm run test:model` validates the 48-question bank, ten-class model, weights, vectors, and approved question revisions.
-- `npm run test:e2e` runs browser tests covering direct startup, ranking input, keyboard controls, full completion, the 29/30 answer community boundary, Beginner handling, rankings, theme persistence, and mobile layout.
+- `npm run test:worker` validates the Worker submission contract, CORS handling, layered rate limits, eligibility boundaries, and invalid-result rejection.
+- `npm run test:e2e` runs browser tests covering direct startup, ranking input, keyboard controls, full completion, the 29/30 answer community boundary, Beginner handling, anonymous client-key persistence, rankings, theme persistence, and mobile layout.
 
 Run everything with `npm test`.
 
@@ -52,4 +53,4 @@ Run everything with `npm test`.
 - The standalone Closest Job Paths section was removed; #2–#4 include expandable close-match explanations.
 - Repeated ranking instructions remain out of the question card.
 - Community stats queries ignore records that do not carry the current mode marker.
-- Community submissions are now rate limited server-side to reduce automated ranking inflation.
+- Community submissions use layered server-side rate limiting to reduce automated ranking inflation.

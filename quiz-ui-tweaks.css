@@ -6,7 +6,6 @@
 body.night-mode .keyboard-hint{border-top-color:rgba(92,124,150,.32);color:#8096a6}
 body.night-mode .keyboard-hint kbd{background:#24364a;border-color:#526a80;color:#bfd0dc}
 
-/* The Space key is part of the action button, so it should read as a soft hint rather than a dark keycap. */
 .primary-btn .key-space,
 body.night-mode .primary-btn .key-space{
   display:inline-flex;
@@ -27,7 +26,6 @@ body.night-mode .primary-btn .key-space{
 }
 .primary-btn .key-space::before{content:""}
 
-/* Results score: one clean ring instead of the heavy gold/blue double-border treatment. */
 .score-ring{
   position:relative;
   width:132px;
@@ -75,4 +73,29 @@ body.night-mode .score-note{color:#7d92a1}
   .score-ring{width:122px;height:122px}
   .score-ring::before{inset:6px}
   .score-ring span{font-size:28px}
+}
+
+/* Use the approved MapleStory-style PNG artwork directly instead of the generic SVG leaf. */
+body .page-shell .masthead .brand-row .maple-mark{
+  background:transparent!important;
+  border:0!important;
+  box-shadow:none!important;
+  color:transparent!important;
+  position:relative;
+  overflow:visible;
+}
+body .page-shell .masthead .brand-row .maple-mark::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  border-radius:16px;
+  background:url("maplestory-leaf-icon.png") center/100% 100% no-repeat;
+  filter:drop-shadow(0 6px 10px rgba(31,52,72,.16));
+}
+body .page-shell .masthead .brand-row .maple-mark > svg{display:none!important}
+body.night-mode .page-shell .masthead .brand-row .maple-mark::before{
+  filter:drop-shadow(0 7px 12px rgba(0,0,0,.28));
+}
+@media(max-width:650px){
+  body .page-shell .masthead .brand-row .maple-mark::before{border-radius:15px}
 }

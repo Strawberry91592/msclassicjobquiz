@@ -31,48 +31,62 @@ jobs:
           def write(path, text):
               Path(path).write_text(text, encoding='utf-8')
 
-          # index.html: remove the actual Road section and the temporary Beginner workaround.
+          def remove_between(text, start_marker, end_marker, include_end=False):
+              start = text.find(start_marker)
+              if start < 0:
+                  raise SystemExit(f'Expected start marker not found: {start_marker!r}')
+              end = text.find(end_marker, start)
+              if end < 0:
+                  raise SystemExit(f'Expected end marker not found: {end_marker!r}')
+              end += len(end_marker) if include_end else 0
+              return text[:start] + text[end:]
+
+          def remove_css_rule(text, selector):
+              start = text.find(selector + '{')
+              if start < 0:
+                  raise SystemExit(f'Expected CSS selector not found: {selector!r}')
+              brace = text.find('{', start)
+              depth = 0
+              for i in range(brace, len(text)):
+                  if text[i] == '{':
+                      depth += 1
+                  elif text[i] == '}':
+                      depth -= 1
+                      if depth == 0:
+                          return text[:start] + text[i + 1:]
+              raise SystemExit(f'Unbalanced CSS rule: {selector!r}')
+
+          # index.html
           path = 'index.html'
           text = read(path)
-          text, count = re.subn(
-              r'\n        <section class="panel detail-panel">\n'
-              r'          <div class="panel-head"><div><h3>Your Road Through Maple World</h3>'
-              r'<p>How the fit lines up from early game through your 2nd Job</p></div></div>\n'
-              r'          <div id="progressionFit" class="progression-grid"></div>\n'
-              r'        </section>',
-              '',
-              text,
-              count=1,
-              flags=re.MULTILINE,
-          )
-          if count != 1:
-              raise SystemExit(f'Expected Road section in index.html, removed {count}')
+          road_start = '        <section class="panel detail-panel">\n          <div class="panel-head"><div><h3>Your Road Through Maple World</h3>'
+          road_end = '        </section>'
+          text = remove_between(text, road_start, road_end, include_end=True)
           text = text.replace('\n  <script src="beginner-stats-fix.js"></script>', '')
           write(path, text)
 
-          # app.js: integrate the Beginner stats refresh directly, then remove dead DOM references.
+          # app.js
           path = 'app.js'
           text = read(path)
-          text, count = re.subn(r"    hide\(\$\('modeModal'\)\);\n", '', text, count=1)
-          if count != 1:
-              raise SystemExit('Expected obsolete modeModal startup line in app.js')
-          text, count = re.subn(r"\n    \$\('progressionFit'\)\.innerHTML = `.*?`;", '', text, count=1, flags=re.DOTALL)
-          if count != 1:
-              raise SystemExit('Expected progressionFit rendering block in app.js')
-          text, count = re.subn(r"\n    const alternatives = \$\('alternatives'\);\n    if \(alternatives\) alternatives\.innerHTML = `.*?`;", '', text, count=1, flags=re.DOTALL)
-          if count != 1:
-              raise SystemExit('Expected dead alternatives block in app.js')
-          text, count = re.subn(
-              r"    renderSharedStats\(\);\n    hide\(\$('quiz'\)\); show\(\$('results'\)\);",
-              "    refreshSharedStats();\n    hide($('quiz')); show($('results'));",
-              text,
-              count=1,
-          )
-          if count != 1:
-              raise SystemExit('Expected Beginner renderSharedStats call site in app.js')
+          obsolete = "    hide($('modeModal'));\n"
+          if obsolete not in text:
+              raise SystemExit('Obsolete modeModal line was not found in app.js')
+          text = text.replace(obsolete, '', 1)
+
+          progression_start = "    $('progressionFit').innerHTML = `"
+          progression_end = '    const alternatives ='
+          text = remove_between(text, progression_start, progression_end, include_end=False)
+          alternatives_start = '    const alternatives ='
+          stats_start = '    renderSharedStats();'
+          text = remove_between(text, alternatives_start, stats_start, include_end=False)
+          old_stats = "    renderSharedStats();\n    hide($('quiz')); show($('results'));"
+          new_stats = "    refreshSharedStats();\n    hide($('quiz')); show($('results'));"
+          if old_stats not in text:
+              raise SystemExit('Beginner stats call site was not found in app.js')
+          text = text.replace(old_stats, new_stats, 1)
           write(path, text)
 
-          # classes.js: road metadata existed solely for the removed results section.
+          # classes.js
           path = 'classes.js'
           text = read(path)
           text, count = re.subn(r',"road":\{"early":"[^"]*","second":"[^"]*"\}', '', text)
@@ -80,17 +94,19 @@ jobs:
               raise SystemExit(f'Expected 10 road metadata blocks in classes.js, removed {count}')
           write(path, text)
 
-          # project-enhancements.js no longer contains the obsolete opening-community implementation;
-          # leave its active guide-link and stats-readback code untouched.
-          if any(token in read('project-enhancements.js') for token in ('openingCommunity', 'ensureOpeningPanel', 'JOB_ORDER')):
-              raise SystemExit('Unexpected stale opening-community code remains in project-enhancements.js')
-
-          # styles.css: remove modal and progression styles that no longer have DOM users.
+          # styles.css: the old landing-modal rules form one contiguous block from
+          # .modal-backdrop through .modal-note. Remove it as actual dead CSS.
           path = 'styles.css'
           text = read(path)
-          text, count = re.subn(r'\.modal-backdrop\{.*?\.modal-note\{[^}]*\}', '', text, count=1, flags=re.DOTALL)
-          if count != 1:
-              raise SystemExit('Expected obsolete modal styles in styles.css')
+          start = text.find('.modal-backdrop{')
+          note = text.find('.modal-note{', start)
+          if start < 0 or note < 0:
+              raise SystemExit('Obsolete modal CSS block was not found')
+          end = text.find('}', note)
+          if end < 0:
+              raise SystemExit('Malformed modal CSS block')
+          text = text[:start] + text[end + 1:]
+
           for old, new in [
               ('.eyebrow,.mode-kicker,.section-label{', '.eyebrow,.section-label{'),
               ('.detail-list,.progression-grid,.shared-stats{', '.detail-list,.shared-stats{'),
@@ -101,34 +117,32 @@ jobs:
               ('body.night-mode .mode-card,', ''),
           ]:
               text = text.replace(old, new)
-          text = re.sub(r'\.progression-grid\{[^}]*\}', '', text, count=1)
-          text = re.sub(r'\.stage h4\{[^}]*\}', '', text, count=1)
-          text = re.sub(r'\.stage p\{[^}]*\}', '', text, count=1)
+
+          for selector in ('.progression-grid', '.stage h4', '.stage p'):
+              text = remove_css_rule(text, selector)
           write(path, text)
 
-          # tests/e2e: explicitly protect the removal from regression.
+          # tests/e2e: lock the removal in with a regression test.
           path = 'tests/e2e/quiz.spec.js'
           text = read(path)
-          marker = "test('results-page community rankings reuse the compact popup layout', async ({ page }) => {"
-          test_block = """test('results omit the redundant progression section', async ({ page }) => {\n  await mockStats(page, { assassin: 1 });\n  await page.goto('/index.html');\n  await advanceToResults(page, 30);\n  await expect(page.locator('#results')).toBeVisible();\n  await expect(page.locator('#progressionFit')).toHaveCount(0);\n  await expect(page.locator('.stage')).toHaveCount(0);\n});\n\n"""
           if 'results omit the redundant progression section' not in text:
+              marker = "test('results-page community rankings reuse the compact popup layout', async ({ page }) => {"
               if marker not in text:
                   raise SystemExit('Expected E2E insertion point was not found')
+              test_block = """test('results omit the redundant progression section', async ({ page }) => {\n  await mockStats(page, { assassin: 1 });\n  await page.goto('/index.html');\n  await advanceToResults(page, 30);\n  await expect(page.locator('#results')).toBeVisible();\n  await expect(page.locator('#progressionFit')).toHaveCount(0);\n  await expect(page.locator('.stage')).toHaveCount(0);\n});\n\n"""
               text = text.replace(marker, test_block + marker, 1)
           write(path, text)
 
-          # Delete the standalone workaround now that the main application owns the flow.
           Path('beginner-stats-fix.js').unlink(missing_ok=True)
 
-          # Final source-level assertions: no hidden/band-aid remnants remain.
-          checks = {
+          forbidden = {
               'index.html': ['Your Road Through Maple World', 'progressionFit', 'beginner-stats-fix.js'],
               'app.js': ['progressionFit', "hide($('modeModal'))", "const alternatives = $('alternatives')"],
               'classes.js': ['"road"'],
               'project-enhancements.js': ['openingCommunity', 'ensureOpeningPanel', 'JOB_ORDER'],
               'styles.css': ['.progression-grid', '.stage', '.modal-backdrop', '.mode-modal', '.mode-card', '.mode-kicker'],
           }
-          for file, needles in checks.items():
+          for file, needles in forbidden.items():
               source = read(file)
               for needle in needles:
                   if needle in source:

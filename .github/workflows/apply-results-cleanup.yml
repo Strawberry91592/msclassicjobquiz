@@ -20,59 +20,90 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
+          import re
 
-          def replace_once(path, old, new):
-              p = Path(path)
-              text = p.read_text()
-              count = text.count(old)
-              if count != 1:
-                  raise SystemExit(f'{path}: expected 1 occurrence, found {count}')
-              p.write_text(text.replace(old, new))
-
-          replace_once(
-              'index.html',
-              '''        <div class="result-grid-top">\n          <section class="panel result-panel job-matches-panel">\n''',
-              '''        <section class="panel result-panel job-matches-panel">\n'''
-          )
+          # index.html: remove the entire results-page playstyle section and its
+          # former two-column wrapper, then rename the community-results heading
+          # and remove its right-side label.
           p = Path('index.html')
           text = p.read_text()
-          start = text.index('          <section class="panel result-panel playstyle-panel">')
-          end = text.index('        </section>\n        <section class="panel detail-panel">', start)
-          p.write_text(text[:start] + text[end:])
-          replace_once(
-              'index.html',
-              '<div class="panel-head"><div><h3>Maple World Results</h3><p id="sharedStatsMeta">See how often each 2nd Job has been the final match.</p></div><span class="panel-mark">COMMUNITY COUNTER</span></div>',
-              '<div class="panel-head"><div><h3>Community Results</h3><p id="sharedStatsMeta">See how often each 2nd Job has been the final match.</p></div></div>'
+          pattern = re.compile(
+              r'        <div class="result-grid-top">\n'
+              r'          <section class="panel result-panel job-matches-panel">.*?'
+              r'          </section>\n'
+              r'          <section class="panel result-panel playstyle-panel">.*?'
+              r'          </section>\n'
+              r'        </div>\n',
+              re.S,
           )
+          replacement = re.sub(
+              r'        <div class="result-grid-top">\n'
+              r'(          <section class="panel result-panel job-matches-panel">.*?'
+              r'          </section>)\n'
+              r'          <section class="panel result-panel playstyle-panel">.*?'
+              r'          </section>\n'
+              r'        </div>\n',
+              r'\1\n',
+              text,
+              count=1,
+              flags=re.S,
+          )
+          if replacement == text:
+              raise SystemExit('index.html: results-grid/playstyle block not found')
+          text = replacement
+          old = '<div class="panel-head"><div><h3>Maple World Results</h3><p id="sharedStatsMeta">See how often each 2nd Job has been the final match.</p></div><span class="panel-mark">COMMUNITY COUNTER</span></div>'
+          new = '<div class="panel-head"><div><h3>Community Results</h3><p id="sharedStatsMeta">See how often each 2nd Job has been the final match.</p></div></div>'
+          if text.count(old) != 1:
+              raise SystemExit('index.html: community-results heading block not found exactly once')
+          p.write_text(text.replace(old, new))
 
+          # app.js: remove all DOM rendering that belonged only to the deleted
+          # playstyle results panel. Keep expressedDims because winnerDetails uses it.
           p = Path('app.js')
           text = p.read_text()
-          replace_once('app.js', "    $('coverageText').textContent = '0% of questions answered';\n", '')
-          replace_once('app.js', "\n    $('profileBars').innerHTML = `<div class=\"empty-note beginner-note\"><strong>Nothing to read yet.</strong><span>You successfully dodged every single question. Your playstyle remains a mystery.</span></div>;", '')
-          replace_once('app.js', "    $('coverageText').textContent = `${result.answered}/${result.total} questions answered`;\n", '')
-          start = text.index('\n    const expressedDims = dims.map(')
-          end = text.index('\n\n    const strongest =', start)
-          removed = text[start:end]
-          if "$('profileBars')" not in removed:
-              raise SystemExit('app.js: profileBars render block not found')
-          p.write_text(text[:start] + text[end:])
+          for line in [
+              "    $('coverageText').textContent = '0% of questions answered';\n",
+              "    $('coverageText').textContent = `${result.answered}/${result.total} questions answered`;\n",
+          ]:
+              if text.count(line) != 1:
+                  raise SystemExit(f'app.js: expected one occurrence of {line.strip()}')
+              text = text.replace(line, '')
+          beginner_block = re.compile(r'\n    \$\(\'profileBars\'\)\.innerHTML = `.*?`;\n', re.S)
+          text, count = beginner_block.subn('', text, count=1)
+          if count != 1:
+              raise SystemExit('app.js: Beginner profileBars block not found')
+          normal_block = re.compile(r'\n    \$\(\'profileBars\'\)\.innerHTML = expressedDims\.length \? .*? : `<p class="empty-note">.*?</p>`;\n', re.S)
+          text, count = normal_block.subn('', text, count=1)
+          if count != 1:
+              raise SystemExit('app.js: normal profileBars block not found')
+          p.write_text(text)
 
+          # project-enhancements.js: simplifySignalCards and its MutationObserver
+          # existed solely for the deleted playstyle UI.
           p = Path('project-enhancements.js')
           text = p.read_text()
-          start = text.index('\n  function simplifySignalCards()')
-          end = text.index('\n\n  // Analytics Engine writes', start)
-          text = text[:start] + text[end:]
+          function_block = re.compile(r'\n  function simplifySignalCards\(\)\{.*?\n  \}\n', re.S)
+          text, count = function_block.subn('\n', text, count=1)
+          if count != 1:
+              raise SystemExit('project-enhancements.js: simplifySignalCards block not found')
           observer = "\n    const profileBars=document.getElementById('profileBars');\n    if(profileBars)new MutationObserver(simplifySignalCards).observe(profileBars,{childList:true,subtree:true});"
           if text.count(observer) != 1:
               raise SystemExit('project-enhancements.js: profileBars observer not found')
           p.write_text(text.replace(observer, ''))
 
+          # quiz-ui-tweaks.css: delete dead playstyle-card CSS and give the results
+          # panels a consistent 14px vertical rhythm. This does not modify the
+          # masthead/top section spacing.
           p = Path('quiz-ui-tweaks.css')
           text = p.read_text()
           marker = '\n/* Make playstyle signals read as two explicit preference bars'
           start = text.index(marker)
-          p.write_text(text[:start] + '''\n/* Results sections use one consistent vertical rhythm. The existing top spacing remains unchanged. */\n#results > .job-matches-panel,\n#results > .detail-panel {\n  margin-top:14px;\n}\n#results > .results-hero + .job-matches-panel {\n  margin-top:14px;\n}\n#results > .detail-panel + .shared-stats-panel {\n  margin-top:14px;\n}\n#results > .site-footer {\n  margin-top:0;\n}\n''')
+          text = text[:start].rstrip() + '''\n\n/* Results panels use one consistent vertical rhythm. Masthead spacing is unchanged. */\n#results > .job-matches-panel,\n#results > .detail-panel {\n  margin-top:14px;\n}\n#results > .site-footer {\n  margin-top:0;\n}\n'''
+          p.write_text(text)
 
+          # e2e tests: replace the now-invalid playstyle UI test with a regression
+          # test proving the section and its dead signal markup are gone. Extend
+          # the community-results test to cover its new heading and removed label.
           p = Path('tests/e2e/quiz.spec.js')
           text = p.read_text()
           marker = "test('playstyle signals compare two explicit bars without the old marker'"
@@ -83,13 +114,12 @@ jobs:
           anchor = "  const rows = page.locator('.shared-stats-panel .stats-row');\n"
           addition = "  await expect(page.locator('.shared-stats-panel h3')).toHaveText('Community Results');\n  await expect(page.locator('.shared-stats-panel .panel-mark')).toHaveCount(0);\n\n"
           if text.count(anchor) != 1:
-              raise SystemExit('tests/e2e/quiz.spec.js: community test anchor not found')
+              raise SystemExit('tests/e2e/quiz.spec.js: community-test anchor not found')
           p.write_text(text.replace(anchor, addition + anchor))
           PY
 
       - name: Verify changed files
         run: |
-          test "$(grep -o 'Your Playstyle' index.html | wc -l)" -eq 1
           ! grep -q 'playstyle-panel' index.html
           ! grep -q 'profileBars' index.html
           ! grep -q 'COMMUNITY COUNTER' index.html
@@ -97,7 +127,7 @@ jobs:
           ! grep -q 'simplifySignalCards' project-enhancements.js
           ! grep -q 'profileBars' project-enhancements.js
           ! grep -q 'playstyle-panel' quiz-ui-tweaks.css
-          grep -q '#results > .detail-panel + .shared-stats-panel' quiz-ui-tweaks.css
+          grep -q '#results > .detail-panel' quiz-ui-tweaks.css
 
       - name: Commit cleanup
         run: |

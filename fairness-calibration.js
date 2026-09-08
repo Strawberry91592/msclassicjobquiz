@@ -1,28 +1,24 @@
 /* Quiz score calibration.
-   Equalize weighted prototype radius to remove structural bias, then add a fixed hidden prior
-   dimension. The hidden dimension is constant for every answer, so it cannot encode a response;
-   it only balances the neutral answer-space geometry between the ten jobs.
+   First apply the proven per-dimension prototype normalization used by the working model. Then
+   add a fixed hidden prior dimension. The hidden dimension is constant for every answer, so it
+   cannot encode a respondent choice; it only balances the neutral answer-space geometry.
 */
 (() => {
   const classes = Object.values(window.CLASS_DATA || {});
   const dimensions = Object.keys(window.QUIZ_DIMS || {});
-  const weights = window.QUIZ_DIM_WEIGHTS || {};
-  const radius = cls => dimensions.reduce((sum, dim) => {
-    return sum + Number(weights[dim] ?? 1) * Math.abs(Number(cls.dims?.[dim] ?? 0.5) - 0.5);
-  }, 0);
-  const radii = classes
-    .map(radius)
-    .filter(value => Number.isFinite(value) && value > 0)
-    .sort((a, b) => a - b);
-  if (radii.length) {
-    const target = radii[Math.floor(radii.length / 2)];
+
+  for (const dimension of dimensions) {
+    const values = classes.map(cls => Number(cls.dims?.[dimension] ?? 0.5));
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    if (!(max > min)) {
+      classes.forEach(cls => { cls.dims[dimension] = 0.5; });
+      continue;
+    }
+    const span = max - min;
     classes.forEach(cls => {
-      const current = radius(cls);
-      if (!(current > 0)) return;
-      const scale = target / current;
-      dimensions.forEach(dim => {
-        cls.dims[dim] = 0.5 + (Number(cls.dims[dim] ?? 0.5) - 0.5) * scale;
-      });
+      const value = Number(cls.dims?.[dimension] ?? 0.5);
+      cls.dims[dimension] = 0.15 + ((value - min) / span) * 0.70;
     });
   }
 

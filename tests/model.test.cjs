@@ -67,7 +67,7 @@ for (const [key, profile] of Object.entries(classes)) {
 }
 
 assert.ok(enhancements.includes("A skill that gives me a strong result when I use it."), 'Approved Q9 wording revision is missing.');
-assert.ok(enhancements.includes('You are fighting monsters that are giving you trouble. What would you rather have?'), 'Approved Q10 wording revision is missing.');
+assert.ok(enhancements.includes('You are fighting monsters that are giving me trouble. What would you rather have?'), 'Approved Q10 wording revision is missing.');
 assert.ok(enhancements.includes('You are fighting monsters that take a while to defeat. What would help you most?'), 'Approved Q15 wording revision is missing.');
 assert.ok(enhancements.includes('You find a map where the monsters give good EXP. What would make you want to keep training there?'), 'Approved Q26 wording revision is missing.');
 assert.ok(enhancements.includes('A training map starts getting crowded with monsters. What would you prefer to do?'), 'Approved Q32 wording revision is missing.');

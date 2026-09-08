@@ -104,7 +104,7 @@ export default {
 
 async function queryStats(env) {
   const winners = [...ALLOWED_WINNERS].map(value => `'${value}'`).join(', ');
-  const sql = `SELECT blob1 AS winner, SUM(_sample_interval) AS count FROM ${env.DATASET_NAME} WHERE index1 = 'classic-quiz' AND blob2 = '${CURRENT_MODE}' AND blob1 IN (${winners}) GROUP BY winner ORDER BY count DESC`;
+  const sql = `SELECT blob1 AS winner, SUM(_sample_interval) AS count FROM ${env.DATASET_NAME} WHERE timestamp >= toDateTime('${env.COMMUNITY_RESET_AT}') AND index1 = 'classic-quiz' AND blob2 = '${CURRENT_MODE}' AND blob1 IN (${winners}) GROUP BY winner ORDER BY count DESC`;
   const response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${env.ACCOUNT_ID}/analytics_engine/sql`, {
     method: 'POST',
     headers: {

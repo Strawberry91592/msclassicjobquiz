@@ -13,20 +13,8 @@ const pars={};for(const k of K){let m=0;for(const r of rows)m+=r[k];m/=N;let v=0
 const zRows=rows.map(r=>Object.fromEntries(K.map(k=>[k,(r[k]-pars[k].mean)/pars[k].sd])));
 const offsets=Object.fromEntries(K.map(k=>[k,0]));
 function winnerCounts(){const c=Object.fromEntries(K.map(k=>[k,0]));for(const r of zRows){let best=K[0],bv=r[best]+offsets[best];for(let i=1;i<K.length;i++){const k=K[i],v=r[k]+offsets[k];if(v>bv){bv=v;best=k;}}c[best]++;}return c;}
-function tuneOne(k,target=1000){const thresholds=[];for(const r of zRows){let other=-Infinity;for(const j of K)if(j!==k){const v=r[j]+offsets[j];if(v>other)other=v;}thresholds.push(other-r[k]);}
- thresholds.sort((a,b)=>a-b);
- let idx=Math.min(N-1,Math.max(0,target));
- // Choose just above the target boundary so the target class wins approximately target cases.
- const base=thresholds[idx];
- offsets[k]=Number.isFinite(base)?base+1e-9:0;
-}
-let counts=winnerCounts();console.log('START',JSON.stringify(counts));
-for(let pass=0;pass<30;pass++){
-  for(const k of K)tuneOne(k,1000);
-  counts=winnerCounts();
-  const maxDev=Math.max(...K.map(k=>Math.abs(counts[k]-1000)));
-  console.log('PASS',pass,'MAXDEV',maxDev,'COUNTS',JSON.stringify(counts),'OFFSETS',JSON.stringify(offsets));
-  if(K.every(k=>counts[k]>=970&&counts[k]<=1030))break;
-}
-console.log('FINAL_OFFSETS',JSON.stringify(offsets));console.log('FINAL_COUNTS',JSON.stringify(counts));
+function tuneOne(k,target=1000){const thresholds=[];for(const r of zRows){let other=-Infinity;for(const j of K)if(j!==k){const v=r[j]+offsets[j];if(v>other)other=v;}thresholds.push(other-r[k]);}thresholds.sort((a,b)=>a-b);const idx=Math.min(N-1,Math.max(0,target));const base=thresholds[idx];offsets[k]=Number.isFinite(base)?base+1e-9:0;}
+let counts=winnerCounts();
+for(let pass=0;pass<30;pass++){for(const k of K)tuneOne(k,1000);counts=winnerCounts();const maxDev=Math.max(...K.map(k=>Math.abs(counts[k]-1000)));console.log('PASS',pass,'MAXDEV',maxDev,'COUNTS',JSON.stringify(counts),'OFFSETS',JSON.stringify(offsets));if(K.every(k=>counts[k]>=970&&counts[k]<=1030))break;}
+console.log('PARAMS',JSON.stringify(pars));console.log('FINAL_OFFSETS',JSON.stringify(offsets));console.log('FINAL_COUNTS',JSON.stringify(counts));
 if(K.some(k=>counts[k]<970||counts[k]>1030))process.exitCode=1;

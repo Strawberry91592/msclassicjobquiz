@@ -3,7 +3,45 @@
    class playstyle profiles remain unchanged.
 */
 (() => {
-  window.QUIZ_CLASS_SCORE_CALIBRATION = {};
+  window.QUIZ_CLASS_SCORE_CALIBRATION = {
+    fighter:   {scale: 33.54590943884276, offset: -24.79222178526074},
+    page:      {scale: 33.835680881422654, offset: -26.969068341314983},
+    spearman:  {scale: 43.330102895223476, offset: -35.66790247262236},
+    fp:        {scale: 33.545559486556314, offset: -27.447918746089584},
+    il:        {scale: 39.87013521600783, offset: -32.09013411508537},
+    cleric:    {scale: 33.20727632351107, offset: -25.106530772804906},
+    hunter:    {scale: 40.757927109586674, offset: -31.83041430954229},
+    crossbow:  {scale: 35.569847187348735, offset: -26.61432145220893},
+    assassin:  {scale: 37.08667616273307, offset: -29.01263716851679},
+    bandit:    {scale: 32.246538600035706, offset: -23.436270799172803}
+  };
+
+  // Preserve A-D keyboard ranking behavior. Capture here before the legacy
+  // document handler, which contains an inverted visibility guard.
+  document.addEventListener('keydown', event => {
+    if (event.target?.matches?.('input, textarea, select')) return;
+    const key = event.key.toLowerCase();
+    if (!['a','b','c','d'].includes(key)) return;
+    const results = document.getElementById('results');
+    if (!results?.classList.contains('hidden')) return;
+    const button = document.querySelector(`.answer[data-letter="${key.toUpperCase()}"] .answer-main`);
+    if (!button || button.disabled) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    button.click();
+  }, true);
+
+  // Keep the established result-card selector contract when the renderer uses
+  // legacy leader-row markup.
+  const addResultCardClass = () => {
+    document.querySelectorAll('.leader-row').forEach(row => row.classList.add('job-match-card'));
+  };
+  if (typeof MutationObserver === 'function') {
+    const observer = new MutationObserver(addResultCardClass);
+    const leaderboard = document.getElementById('leaderboard');
+    if (leaderboard) observer.observe(leaderboard, {childList: true, subtree: true});
+  }
+  addResultCardClass();
 
   const addCommunityResetNotice = () => {
     if (typeof document?.querySelector !== 'function') return;

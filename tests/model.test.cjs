@@ -28,6 +28,7 @@ const dims = context.window.QUIZ_DIMS;
 const dimWeights = context.window.QUIZ_DIM_WEIGHTS;
 const questionWeights = context.window.QUIZ_QUESTION_WEIGHTS;
 const vectors = context.window.QUIZ_OPTION_VECTORS;
+const calibration = context.window.QUIZ_CLASS_SCORE_CALIBRATION || {};
 const dimKeys = Object.keys(dims);
 const classKeys = Object.keys(classes);
 
@@ -54,9 +55,16 @@ for (const term of forbiddenSpecificTerms) {
 }
 
 assert.equal(JSON.stringify(classKeys), JSON.stringify(['fighter', 'page', 'spearman', 'fp', 'il', 'cleric', 'hunter', 'crossbow', 'assassin', 'bandit']), 'The scoring model must contain exactly the ten current 2nd Jobs in the approved order.');
-assert.equal(dimKeys.length, 21, 'The scoring model must contain 20 visible playstyle dimensions plus one hidden neutral calibration dimension.');
+assert.equal(dimKeys.length, 20, 'The scoring model must contain exactly 20 visible playstyle dimensions.');
 assert.equal(Object.keys(dimWeights).length, dimKeys.length, 'Every scoring dimension must have a dimension weight.');
 assert.deepEqual(Object.keys(dimWeights).sort(), [...dimKeys].sort(), 'Every scoring dimension must have a dimension weight.');
+assert.deepEqual(Object.keys(calibration).sort(), classKeys.slice().sort(), 'Every job must have a score calibration entry.');
+for (const key of classKeys) {
+  const scale = Number(calibration[key]?.scale);
+  const offset = Number(calibration[key]?.offset);
+  assert.ok(Number.isFinite(scale) && scale > 0, `${key} must have a positive score-calibration scale.`);
+  assert.ok(Number.isFinite(offset), `${key} must have a finite score-calibration offset.`);
+}
 
 for (let id = 1; id <= 20; id += 1) {
   const key = String(id);
@@ -137,7 +145,11 @@ function calculateScoresFromAnswers(answerLetters) {
       sum += (1 - Math.min(1, distance)) * weight;
       denominator += weight;
     });
-    scores[key] = denominator ? sum / denominator : 0.5;
+    const rawScore = denominator ? sum / denominator : 0.5;
+    const transform = calibration[key] || {};
+    const scale = Number(transform.scale);
+    const offset = Number(transform.offset);
+    scores[key] = rawScore * scale + offset;
   });
   return { scores, userDims };
 }
@@ -155,7 +167,7 @@ for (const classKey of classKeys) {
       const vector = normalizedVector(vectors[question.id][letter.charCodeAt(0) - 65]);
       let distance = 0;
       let weightTotal = 0;
-      dimKeys.filter(dim => dim !== '__neutral_prior').forEach(dim => {
+      dimKeys.forEach(dim => {
         const signal = Math.abs(vector[dim] - 0.5) * 2;
         if (signal < 0.08) return;
         const weight = dimWeights[dim] || 1;
@@ -193,4 +205,4 @@ for (const key of classKeys) {
   assert.equal(counts[key], expectedPerClass, `Uniform-neutral fairness regression failed for ${key}: expected exactly ${expectedPerClass} / ${iterations}, got ${counts[key]}. Full counts: ${JSON.stringify(counts)}`);
 }
 
-console.log(`Scoring model checks passed: 20 visible questions, 10 jobs, 21 scoring dimensions, balanced weights, all ten synthetic class fingerprints recover correctly, and uniform-neutral winners are exactly 10% per job. Winner distribution: ${JSON.stringify(counts)}`);
+console.log(`Scoring model checks passed: 20 visible questions, 10 jobs, 20 scoring dimensions, balanced weights, all ten synthetic class fingerprints recover correctly, and uniform-neutral winners are exactly 10% per job. Winner distribution: ${JSON.stringify(counts)}`);

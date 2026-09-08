@@ -1,4 +1,4 @@
-/* v1.0 live UI polish: keep the question card focused and move shortcut help out of the control cluster. */
+/* v1.1 live UI polish: cleaner controls and a quieter results score ring. */
 .quiz-nav{margin-top:16px}
 .keyboard-hint{margin:13px 2px 0;padding-top:9px;border-top:1px solid rgba(73,102,124,.34);gap:7px 14px;color:#718594;font-size:10px;font-weight:800}
 .keyboard-hint span{display:inline-flex;align-items:center;white-space:nowrap}
@@ -27,8 +27,52 @@ body.night-mode .primary-btn .key-space{
 }
 .primary-btn .key-space::before{content:""}
 
+/* Results score: one clean ring instead of the heavy gold/blue double-border treatment. */
+.score-ring{
+  position:relative;
+  width:132px;
+  height:132px;
+  margin:auto;
+  border:0;
+  border-radius:50%;
+  display:grid;
+  place-items:center;
+  background:#4b687f;
+  box-shadow:none;
+}
+.score-ring::before{
+  content:"";
+  position:absolute;
+  inset:7px;
+  border-radius:50%;
+  background:#fffdf7;
+}
+.score-ring span{
+  position:relative;
+  z-index:1;
+  color:#527f4b;
+  font-size:30px;
+  line-height:1;
+  font-weight:900;
+  letter-spacing:-.03em;
+}
+.score-note{
+  margin-top:6px;
+  color:#738697;
+  font-size:9px;
+  font-weight:900;
+  letter-spacing:.18em;
+}
+body.night-mode .score-ring{background:#476175}
+body.night-mode .score-ring::before{background:#1c2a3e}
+body.night-mode .score-ring span{color:#86a978}
+body.night-mode .score-note{color:#7d92a1}
+
 @media(max-width:650px){
   .keyboard-hint{gap:6px 10px;margin-top:11px;padding-top:8px}
   .keyboard-hint kbd{min-width:18px;height:18px}
   .primary-btn .key-space{min-width:40px;height:21px}
+  .score-ring{width:122px;height:122px}
+  .score-ring::before{inset:6px}
+  .score-ring span{font-size:28px}
 }

@@ -135,6 +135,14 @@
         : 'No choices ranked yet.';
   }
 
+  function keepQuizNavVisible() {
+    if (window.matchMedia('(max-width: 650px)').matches) {
+      $('nextBtn')?.scrollIntoView({behavior:'smooth', block:'nearest'});
+    } else {
+      window.scrollTo({top:0,behavior:'smooth'});
+    }
+  }
+
   function vectorFor(qId, letter) {
     const idx = letter.charCodeAt(0) - 65;
     return OPTION_VECTORS[qId]?.[idx] || {};
@@ -412,7 +420,7 @@
       if (state.index < state.questions.length - 1) {
         state.index++;
         renderQuestion();
-        window.scrollTo({top:0,behavior:'smooth'});
+        keepQuizNavVisible();
       } else {
         renderResults();
       }
@@ -424,7 +432,7 @@
   $('clearRanking').addEventListener('click', () => { state.answers[state.index] = {ranked:[],abstained:false}; renderQuestion(); });
   $('abstainBtn').addEventListener('click', () => { const a = state.answers[state.index]; a.ranked=[]; a.abstained=!a.abstained; renderQuestion(); });
   $('backBtn').addEventListener('click', () => { if (state.index>0) { state.index--; renderQuestion(); window.scrollTo({top:0,behavior:'smooth'}); } });
-  $('nextBtn').addEventListener('click', () => { if (state.index < state.questions.length-1) { state.index++; renderQuestion(); window.scrollTo({top:0,behavior:'smooth'}); } else renderResults(); });
+  $('nextBtn').addEventListener('click', () => { if (state.index < state.questions.length-1) { state.index++; renderQuestion(); keepQuizNavVisible(); } else renderResults(); });
   $('quitBtn').addEventListener('click', () => { if (confirm('Restart and clear your current answers?')) start(); });
   $('retakeBtn').addEventListener('click', retake);
 

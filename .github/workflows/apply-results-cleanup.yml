@@ -1,0 +1,116 @@
+name: Apply Results Cleanup
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    if: ${{ github.event.head_commit.message != 'Apply results cleanup' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Apply requested results-page cleanup
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected 1 occurrence, found {count}')
+              p.write_text(text.replace(old, new))
+
+          # index.html: remove the redundant playstyle panel and its wrapper;
+          # rename the community results heading and remove its label.
+          replace_once(
+              'index.html',
+              '''        <div class="result-grid-top">\n          <section class="panel result-panel job-matches-panel">\n''',
+              '''        <section class="panel result-panel job-matches-panel">\n'''
+          )
+          replace_once(
+              'index.html',
+              '''          </section>\n          <section class="panel result-panel playstyle-panel">\n            <div class="panel-head playstyle-head">\n              <div><h3>Your Playstyle</h3><p id="coverageText"></p></div>\n              <span class="panel-mark">YOUR SIGNALS</span>\n            </div>\n            <div id="profileBars" class="profile-bars"></div>\n          </section>\n        </div>\n''',
+              '''        </section>\n'''
+          )
+          replace_once('index.html', '<div class="panel-head"><div><h3>Maple World Results</h3><p id="sharedStatsMeta">See how often each 2nd Job has been the final match.</p></div><span class="panel-mark">COMMUNITY COUNTER</span></div>', '<div class="panel-head"><div><h3>Community Results</h3><p id="sharedStatsMeta">See how often each 2nd Job has been the final match.</p></div></div>')
+
+          # app.js: stop rendering the removed playstyle presentation.
+          replace_once('app.js', "    $('coverageText').textContent = '0% of questions answered';\n", '')
+          replace_once('app.js', "\n    $('profileBars').innerHTML = `<div class=\"empty-note beginner-note\"><strong>Nothing to read yet.</strong><span>You successfully dodged every single question. Your playstyle remains a mystery.</span></div>;", '')
+          replace_once('app.js', "    $('coverageText').textContent = `${result.answered}/${result.total} questions answered`;\n", '')
+          pattern = re.compile(r"\n    const expressedDims = dims\.map\(d => \(\{d,v:result\.userDims\[d\],signal:Math\.abs\(result\.userDims\[d\]-0\.5\)\}\}\)\n      \.filter\(x=>x\.signal>0\.08\)\.sort\(\(a,b\)=>b\.signal-a\.signal\)\.slice\(0,10\);\n    \$\('profileBars'\)\.innerHTML = .*?\n\n    const strongest =", re.S)
+          text = Path('app.js').read_text()
+          text, count = pattern.subn('\n    const expressedDims = dims.map(d => ({d,v:result.userDims[d],signal:Math.abs(result.userDims[d]-0.5)}))\n      .filter(x=>x.signal>0.08).sort((a,b)=>b.signal-a.signal).slice(0,10);\n\n    const strongest =', text, count=1)
+          if count != 1:
+              raise SystemExit(f'app.js: playstyle render block match count {count}')
+          Path('app.js').write_text(text)
+
+          # project-enhancements.js: remove the temporary DOM rewriting and its observer.
+          p = Path('project-enhancements.js')
+          text = p.read_text()
+          pattern = re.compile(r"\n  function simplifySignalCards\(\)\{.*?\n  \}\n\n  // Analytics Engine writes", re.S)
+          text, count = pattern.subn('\n  // Analytics Engine writes', text, count=1)
+          if count != 1:
+              raise SystemExit(f'project-enhancements.js: simplifySignalCards match count {count}')
+          text, count = re.subn(r"\n    const profileBars=document\.getElementById\('profileBars'\);\n    if\(profileBars\)new MutationObserver\(simplifySignalCards\)\.observe\(profileBars,\{childList:true,subtree:true\}\);", '', text, count=1)
+          if count != 1:
+              raise SystemExit('project-enhancements.js: profileBars observer not found')
+          p.write_text(text)
+
+          # quiz-ui-tweaks.css: remove now-dead playstyle presentation CSS and add
+          # one consistent result-section rhythm without changing the results top section.
+          p = Path('quiz-ui-tweaks.css')
+          text = p.read_text()
+          text, count = re.subn(r"\n/\* Make playstyle signals read as two explicit preference bars.*\Z", '\n', text, count=1, flags=re.S)
+          if count != 1:
+              raise SystemExit('quiz-ui-tweaks.css: playstyle CSS block not found')
+          text += '''\n/* Results sections use one consistent vertical rhythm. The existing top spacing remains unchanged. */\n#results > .job-matches-panel,\n#results > .detail-panel {\n  margin-top:14px;\n}\n#results > .results-hero + .job-matches-panel {\n  margin-top:14px;\n}\n#results > .detail-panel + .shared-stats-panel {\n  margin-top:14px;\n}\n#results > .site-footer {\n  margin-top:0;\n}\n'''
+          p.write_text(text)
+
+          # e2e tests: replace the old playstyle test with absence and rename/remove counter assertions.
+          p = Path('tests/e2e/quiz.spec.js')
+          text = p.read_text()
+          pattern = re.compile(r"\ntest\('playstyle signals compare two explicit bars without the old marker'.*?\n\}\);\n", re.S)
+          replacement = '''\ntest('results no longer render the redundant playstyle section or signal markup', async ({ page }) => {\n  await mockStats(page, { page: 1 });\n  await page.goto('/index.html');\n  await advanceToResults(page, 48);\n\n  await expect(page.locator('.playstyle-panel')).toHaveCount(0);\n  await expect(page.locator('#profileBars')).toHaveCount(0);\n  await expect(page.locator('.signal-card')).toHaveCount(0);\n  await expect(page.locator('.signal-marker')).toHaveCount(0);\n});\n'''
+          text, count = pattern.subn(replacement, text, count=1)
+          if count != 1:
+              raise SystemExit('tests/e2e/quiz.spec.js: old playstyle test not found')
+          replace = ('<div class="panel-head"><div><h3>Community Results</h3><p id="sharedStatsMeta">')
+          # Add assertions in the community-results test without changing its existing layout checks.
+          anchor = "  const rows = page.locator('.shared-stats-panel .stats-row');\n"
+          addition = "  await expect(page.locator('.shared-stats-panel h3')).toHaveText('Community Results');\n  await expect(page.locator('.shared-stats-panel .panel-mark')).toHaveCount(0);\n\n"
+          if text.count(anchor) != 1:
+              raise SystemExit('tests/e2e/quiz.spec.js: community test anchor not found')
+          text = text.replace(anchor, addition + anchor)
+          p.write_text(text)
+          PY
+
+      - name: Verify changed files
+        run: |
+          test "$(grep -o 'Your Playstyle' index.html | wc -l)" -eq 1
+          ! grep -q 'playstyle-panel' index.html
+          ! grep -q 'profileBars' index.html
+          ! grep -q 'COMMUNITY COUNTER' index.html
+          grep -q '>Community Results<' index.html
+          ! grep -q 'simplifySignalCards' project-enhancements.js
+          ! grep -q 'profileBars' project-enhancements.js
+          ! grep -q 'playstyle-panel' quiz-ui-tweaks.css
+          grep -q '#results > .detail-panel + .shared-stats-panel' quiz-ui-tweaks.css
+
+      - name: Commit cleanup
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html app.js project-enhancements.js quiz-ui-tweaks.css tests/e2e/quiz.spec.js
+          git commit -m 'Apply results cleanup'
+          git push

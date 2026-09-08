@@ -45,9 +45,10 @@
   }
 
   const addCommunityResetNotice = () => {
+    if (typeof document?.querySelector !== 'function') return;
     const panel = document.querySelector('.shared-stats-panel');
-    const stats = document.getElementById('sharedStats');
-    if (!panel || !stats || panel.querySelector('.community-reset-notice')) return;
+    const stats = document.getElementById?.('sharedStats');
+    if (!panel || !stats || typeof panel.querySelector !== 'function' || panel.querySelector('.community-reset-notice')) return;
 
     const notice = document.createElement('aside');
     notice.className = 'community-reset-notice';

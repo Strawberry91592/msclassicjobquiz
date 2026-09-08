@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   cleanup:
-    if: ${{ github.event.head_commit.message != 'Apply results cleanup' && github.event.head_commit.message != 'Harden results cleanup automation' }}
+    if: ${{ github.event.head_commit.message != 'Apply results cleanup' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -29,25 +29,22 @@ jobs:
                   raise SystemExit(f'{path}: expected 1 occurrence, found {count}')
               p.write_text(text.replace(old, new))
 
-          # index.html: collapse the former two-column results wrapper to the
-          # surviving job-match section and remove the redundant playstyle panel.
           replace_once(
               'index.html',
               '''        <div class="result-grid-top">\n          <section class="panel result-panel job-matches-panel">\n''',
               '''        <section class="panel result-panel job-matches-panel">\n'''
           )
-          start = Path('index.html').read_text()
-          block_start = start.index('          <section class="panel result-panel playstyle-panel">')
-          block_end = start.index('        </section>\n        <section class="panel detail-panel">', block_start)
-          text = start[:block_start] + start[block_end:]
-          Path('index.html').write_text(text)
+          p = Path('index.html')
+          text = p.read_text()
+          start = text.index('          <section class="panel result-panel playstyle-panel">')
+          end = text.index('        </section>\n        <section class="panel detail-panel">', start)
+          p.write_text(text[:start] + text[end:])
           replace_once(
               'index.html',
               '<div class="panel-head"><div><h3>Maple World Results</h3><p id="sharedStatsMeta">See how often each 2nd Job has been the final match.</p></div><span class="panel-mark">COMMUNITY COUNTER</span></div>',
               '<div class="panel-head"><div><h3>Community Results</h3><p id="sharedStatsMeta">See how often each 2nd Job has been the final match.</p></div></div>'
           )
 
-          # app.js: remove all DOM output belonging exclusively to the removed panel.
           p = Path('app.js')
           text = p.read_text()
           replace_once('app.js', "    $('coverageText').textContent = '0% of questions answered';\n", '')
@@ -57,36 +54,31 @@ jobs:
           end = text.index('\n\n    const strongest =', start)
           removed = text[start:end]
           if "$('profileBars')" not in removed:
-              raise SystemExit('app.js: expected profileBars render block was not found')
+              raise SystemExit('app.js: profileBars render block not found')
           p.write_text(text[:start] + text[end:])
 
-          # project-enhancements.js: remove the now-unnecessary DOM rewriter and observer.
           p = Path('project-enhancements.js')
           text = p.read_text()
           start = text.index('\n  function simplifySignalCards()')
           end = text.index('\n\n  // Analytics Engine writes', start)
-          p.write_text(text[:start] + text[end:])
-          text = p.read_text()
+          text = text[:start] + text[end:]
           observer = "\n    const profileBars=document.getElementById('profileBars');\n    if(profileBars)new MutationObserver(simplifySignalCards).observe(profileBars,{childList:true,subtree:true});"
-          replace_once('project-enhancements.js', observer, '')
+          if text.count(observer) != 1:
+              raise SystemExit('project-enhancements.js: profileBars observer not found')
+          p.write_text(text.replace(observer, ''))
 
-          # quiz-ui-tweaks.css: remove the dead playstyle styling while retaining
-          # the existing global polish and the community-results card treatment.
           p = Path('quiz-ui-tweaks.css')
           text = p.read_text()
           marker = '\n/* Make playstyle signals read as two explicit preference bars'
           start = text.index(marker)
-          p.write_text(text[:start] + '\n')
-          with p.open('a') as f:
-              f.write('''/* Results sections use one consistent vertical rhythm. The existing top spacing remains unchanged. */\n#results > .job-matches-panel,\n#results > .detail-panel {\n  margin-top:14px;\n}\n#results > .results-hero + .job-matches-panel {\n  margin-top:14px;\n}\n#results > .detail-panel + .shared-stats-panel {\n  margin-top:14px;\n}\n#results > .site-footer {\n  margin-top:0;\n}\n''')
+          p.write_text(text[:start] + '''\n/* Results sections use one consistent vertical rhythm. The existing top spacing remains unchanged. */\n#results > .job-matches-panel,\n#results > .detail-panel {\n  margin-top:14px;\n}\n#results > .results-hero + .job-matches-panel {\n  margin-top:14px;\n}\n#results > .detail-panel + .shared-stats-panel {\n  margin-top:14px;\n}\n#results > .site-footer {\n  margin-top:0;\n}\n''')
 
-          # e2e tests: assert the playstyle UI is gone and the new community heading exists.
           p = Path('tests/e2e/quiz.spec.js')
           text = p.read_text()
           marker = "test('playstyle signals compare two explicit bars without the old marker'"
           start = text.index(marker)
           end = text.index("\ntest('results-page community rankings reuse the compact popup layout'", start)
-          replacement = '''test('results no longer render the redundant playstyle section or signal markup', async ({ page }) => {\n  await mockStats(page, { page: 1 });\n  await page.goto('/index.html');\n  await advanceToResults(page, 48);\n\n  await expect(page.locator('.playstyle-panel')).toHaveCount(0);\n  await expect(page.locator('#profileBars')).toHaveCount(0);\n  await expect(page.locator('.signal-card')).toHaveCount(0);\n  await expect(page.locator('.signal-marker')).toHaveCount(0);\n});\n\n'''
+          replacement = '''test('results no longer render the redundant playstyle section or signal markup', async ({ page }) => {\n  await mockStats(page, { page: 1 });\n  await page.goto('/index.html');\n  await advanceToResults(page, 48);\n\n  await expect(page.locator('.playstyle-panel')).toHaveCount(0);\n  await expect(page.locator('#profileBars')).toHaveCount(0);\n  await expect(page.locator('.signal-card')).toHaveCount(0);\n  await expect(page.locator('.signal-marker')).toHaveCount(0);\n});\n'''
           text = text[:start] + replacement + text[end + 1:]
           anchor = "  const rows = page.locator('.shared-stats-panel .stats-row');\n"
           addition = "  await expect(page.locator('.shared-stats-panel h3')).toHaveText('Community Results');\n  await expect(page.locator('.shared-stats-panel .panel-mark')).toHaveCount(0);\n\n"

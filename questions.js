@@ -21,27 +21,3 @@ window.QUIZ_QUESTIONS = [
   {"id":19,"section":"2nd Job Playstyle","text":"Which kind of improvement would make a new skill feel most valuable to you?","options":[["A","It becomes extremely effective when I prepare the situation correctly."],["B","It gives me a strong result immediately without much setup."],["C","It solves a problem that my current tools handle poorly."],["D","It gives me another way to approach fights instead of replacing my old routine."]]},
   {"id":20,"section":"2nd Job Playstyle","text":"After reaching level 30, what would make the new job feel like a natural fit for your character?","options":[["A","My familiar fighting style becomes noticeably stronger."],["B","I gain a new way to shape how monsters are fought."],["C","I gain tools that make me more useful in a party or in unusual situations."],["D","I gain a distinct specialty that gives me a reason to seek out the right targets or maps."]]}
 ];
-
-// Apply a calibrated Hunter prototype immediately when classes.js assigns CLASS_DATA. The
-// profile emphasizes the traits the existing answer bank can actually distinguish: ranged
-// positioning, reliable output, low close-range comfort and low party dependence.
-(() => {
-  let backing;
-  const hunterProfile = {
-    single:0.65, aoe:0.85, mobility:0.20, range:0.95, position:0.90,
-    risk:0.35, resource:0.50, economy:0.50, party:0.20, utility:0.40,
-    special:0.75, versatility:0.55, element:0.50, matchup:0.50, setup:0.55,
-    payoff:0.70, consistency:0.95, close:0.15, gear:0.55, attention:0.65
-  };
-  Object.defineProperty(window, 'CLASS_DATA', {
-    configurable:true,
-    get(){ return backing; },
-    set(value){
-      backing=value;
-      if (value?.hunter?.dims) {
-        const target=hunterProfile;
-        value.hunter.dims=new Proxy(target,{set(){return true;}});
-      }
-    }
-  });
-})();

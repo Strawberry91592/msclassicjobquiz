@@ -67,9 +67,12 @@ body.night-mode .score-ring span{color:#86a978}
 body.night-mode .score-note{color:#7d92a1}
 
 @media(max-width:650px){
-  .keyboard-hint{gap:6px 10px;margin-top:11px;padding-top:8px}
-  .keyboard-hint kbd{min-width:18px;height:18px}
-  .primary-btn .key-space{min-width:40px;height:21px}
+  /* Phones do not have a physical keyboard, so keyboard-only affordances
+     add clutter without helping touch users. The shortcuts themselves remain
+     available for devices that do have a keyboard. */
+  .keyboard-hint{display:none}
+  .key-mini{display:none!important}
+  .primary-btn .key-space{display:none!important}
   .score-ring{width:122px;height:122px}
   .score-ring::before{inset:6px}
   .score-ring span{font-size:28px}

@@ -98,11 +98,13 @@ test('30 answered questions are counted and use the anonymous client key', async
   expect(keyAfterReload).toBe(posts[0].clientKey);
 });
 
-test('skipping every question produces the Beginner result and no community submission', async ({ page }) => {
+test('skipping every question produces the Beginner result and loads community stats', async ({ page }) => {
   const posts = await mockStats(page);
   await page.goto('/index.html');
   await advanceToResults(page, 0);
   await expect(page.locator('#winnerName')).toHaveText('Beginner');
+  await expect(page.locator('#sharedStatsMeta')).toHaveText('0 completed quizzes counted');
+  await expect(page.locator('#sharedStats')).not.toContainText('Loading the latest Maple World results');
   expect(posts).toHaveLength(0);
 });
 

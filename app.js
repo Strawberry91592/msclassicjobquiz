@@ -5,6 +5,7 @@
   const OPTION_VECTORS = window.QUIZ_OPTION_VECTORS || {};
   const dims = Object.keys(DIM_LABELS);
   const modeNames = {12:'Maple Island → 2nd Job'};
+  const RECOMMENDATION_MIN_ANSWERED = 25;
   const COMMUNITY_MIN_ANSWERED = 30;
 
   const state = {
@@ -254,6 +255,40 @@
     window.scrollTo({top:0,behavior:'smooth'});
   }
 
+  function renderInsufficientResult(result) {
+    $('winnerFamily').textContent = 'MAPLE ISLAND';
+    $('winnerName').textContent = 'Not enough answers';
+    $('winnerScore').textContent = 'No Job match yet';
+    $('winnerSummary').textContent = `Answer at least ${RECOMMENDATION_MIN_ANSWERED} questions to receive a Job recommendation. You answered ${result.answered} of ${result.total}.`;
+    $('ringScore').textContent = '—';
+    $('confidenceText').textContent = `${result.answered}/${result.total} questions answered • ${RECOMMENDATION_MIN_ANSWERED} needed for a Job recommendation`;
+    $('rankingModeLabel').textContent = 'MAPLE ISLAND → 2ND JOB';
+
+    const leaderboard = document.getElementById('leaderboard');
+    if (leaderboard) {
+      leaderboard.innerHTML = `
+        <div class="beginner-result-card insufficient-result-card">
+          <div class="beginner-emblem">?</div>
+          <div>
+            <strong>Your result is not ready yet.</strong>
+            <p>The quiz needs at least ${RECOMMENDATION_MIN_ANSWERED} ranked questions before it will tell you which Job best matches your playstyle.</p>
+          </div>
+        </div>`;
+    }
+    $('winnerDetails').innerHTML = `
+      <div class="detail-item"><strong>Why there is no Job match</strong><p>With fewer than ${RECOMMENDATION_MIN_ANSWERED} answered questions, the result can be too heavily influenced by the small number of choices you made. Answer more questions for a more reliable recommendation.</p></div>
+      <div class="detail-item tradeoff-card"><strong>Keep going</strong><p>You can retake the quiz and answer at least ${RECOMMENDATION_MIN_ANSWERED} questions to unlock your Job match.</p></div>`;
+
+    const eligibilityPanel = document.getElementById('communityEligibility');
+    if (eligibilityPanel) {
+      eligibilityPanel.className = 'community-eligibility ineligible';
+      eligibilityPanel.innerHTML = `<strong>Community Results: Not counted</strong><span>At least ${COMMUNITY_MIN_ANSWERED} questions must have a ranked answer before a result is added to the community totals.</span>`;
+    }
+    refreshSharedStats();
+    hide($('quiz')); show($('results'));
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+
   function guideMarkup(jobKey) {
     const guides = window.QUIZ_JOB_GUIDES?.[jobKey] || [];
     if (!guides.length) return '';
@@ -266,6 +301,11 @@
 
     if (result.rankedChoices === 0) {
       renderBeginnerResult(result);
+      return;
+    }
+
+    if (result.answered < RECOMMENDATION_MIN_ANSWERED) {
+      renderInsufficientResult(result);
       return;
     }
 

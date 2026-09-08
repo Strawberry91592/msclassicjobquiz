@@ -9,11 +9,7 @@ async function mockStats(page, totals = {}) {
     const url = request.url();
     if (request.method() === 'POST' && url.endsWith('/result')) {
       posts.push(JSON.parse(request.postData() || '{}'));
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ ok: true })
-      });
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) });
       return;
     }
     if (request.method() === 'GET' && url.endsWith('/stats')) {
@@ -37,11 +33,8 @@ async function advance(page, count, answer = false) {
   }
 }
 
-test.beforeEach(async ({ page }) => {
-  await mockStats(page);
-});
-
 test('opens directly on Question 1 with no landing screen', async ({ page }) => {
+  await mockStats(page);
   await page.goto('/index.html');
   await expect(page.locator('#modeModal')).toHaveCount(0);
   await expect(page.locator('#quiz')).toBeVisible();
@@ -51,6 +44,7 @@ test('opens directly on Question 1 with no landing screen', async ({ page }) => 
 });
 
 test('mouse ranking and keyboard shortcuts stay consistent', async ({ page }) => {
+  await mockStats(page);
   await page.goto('/index.html');
   await page.locator('.answer-main').nth(0).click();
   await page.keyboard.press('B');
@@ -117,6 +111,7 @@ test('community rankings open, sort, and explain what the ranking means', async 
 });
 
 test('Day/Night preference persists and rankings remain readable in Day mode', async ({ page }) => {
+  await mockStats(page);
   await page.goto('/index.html');
   await expect(page.locator('body')).toHaveClass(/night-mode/);
   await page.locator('#themeToggle').click();
@@ -130,6 +125,7 @@ test('Day/Night preference persists and rankings remain readable in Day mode', a
 });
 
 test('mobile layout has no horizontal overflow', async ({ page }) => {
+  await mockStats(page);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/index.html');
   const metrics = await page.evaluate(() => ({

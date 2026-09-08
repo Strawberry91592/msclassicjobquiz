@@ -1,5 +1,5 @@
 /* Uniform-neutral answer-space calibration.
-   This hidden dimension is constant for every answer, so it cannot represent a respondent trait.
+   The hidden dimension is constant for every answer, so it cannot represent a respondent trait.
    It acts only as a class-specific prior that compensates for structural differences in the
    visible playstyle prototype geometry. Visible question vectors and class dimensions remain
    unchanged.
@@ -26,5 +26,4 @@
   for (const [job, value] of Object.entries(priorByJob)) {
     if (window.CLASS_DATA?.[job]) window.CLASS_DATA[job].dims[dimension] = value;
   }
-  window.QUIZ_NEUTRAL_CLASS_PRIORS = priorByJob;
 })();

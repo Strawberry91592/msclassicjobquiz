@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "npm run test:model && npm run test:worker && npm run test:e2e",
-    "test:model": "node tests/tune-priors.cjs",
+    "test:model": "node tests/model.test.cjs",
     "test:worker": "node tests/worker.test.mjs",
     "test:e2e": "playwright test"
   },

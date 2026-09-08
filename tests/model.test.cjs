@@ -31,9 +31,23 @@ const vectors = context.window.QUIZ_OPTION_VECTORS;
 
 assert.equal(questions.length, 20, 'The quiz must contain exactly 20 questions.');
 assert.equal(JSON.stringify(questions.map(q => q.id)), JSON.stringify(Array.from({ length: 20 }, (_, i) => i + 1)), 'Question IDs must be a unique 1..20 sequence.');
-assert.equal(questions.filter(q => q.section === 'Core Playstyle').length, 8, 'Exactly 8 questions must cover core class playstyle.');
-assert.equal(questions.filter(q => q.section === '2nd Job Fit').length, 12, 'Exactly 12 questions must cover second-job-specific fit.');
+assert.equal(questions.filter(q => q.section === 'Class Playstyle').length, 8, 'Exactly 8 questions must establish core class playstyle.');
+assert.equal(questions.filter(q => q.section === '2nd Job Playstyle').length, 12, 'Exactly 12 questions must distinguish second-job playstyles.');
 assert.equal(new Set(questions.map(q => q.text)).size, 20, 'Question prompts must be unique.');
+for (const question of questions) {
+  assert.equal(question.options.length, 4, `Question ${question.id} must have exactly four options.`);
+  assert.equal(new Set(question.options.map(([, text]) => text)).size, 4, `Question ${question.id} option text must be unique.`);
+}
+
+const forbiddenSpecificTerms = [
+  'fighter','page','spearman','f/p','i/l','cleric','hunter','crossbowman','assassin','bandit',
+  'rage','threaten','slash blast','power strike','savage blow','lucky seven','arrow bomb','iron arrow',
+  'fire arrow','poison breath','thunder bolt','cold beam','heal','bless','teleport','drain','haste','rush'
+];
+const questionText = questions.flatMap(q => [q.text, ...q.options.map(([, text]) => text)]).join(' ').toLowerCase();
+for (const term of forbiddenSpecificTerms) {
+  assert.equal(questionText.includes(term), false, `Question bank must not directly name or hint at a specific job/skill: ${term}`);
+}
 
 assert.equal(JSON.stringify(Object.keys(classes)), JSON.stringify(['fighter', 'page', 'spearman', 'fp', 'il', 'cleric', 'hunter', 'crossbow', 'assassin', 'bandit']), 'The scoring model must contain exactly the ten current 2nd Jobs in the approved order.');
 const dimKeys = Object.keys(dims);
@@ -63,14 +77,8 @@ for (const [key, profile] of Object.entries(classes)) {
 
 const weights = Object.values(questionWeights).map(Number);
 assert.equal(weights.length, 20, 'There must be exactly 20 question weights.');
-assert.ok(Math.min(...weights) >= 0.84 && Math.max(...weights) <= 1.12, 'The new question weights must stay within the intended balanced range.');
-assert.ok(Math.abs(weights.reduce((sum, value) => sum + value, 0) / weights.length - 1.027) < 0.001, 'Question weights should remain centered around a neutral average.');
+assert.ok(Math.min(...weights) >= 0.84 && Math.max(...weights) <= 1.12, 'Question weights must stay within the balanced 0.84–1.12 range.');
+assert.ok(Math.abs(weights.reduce((sum, value) => sum + value, 0) / weights.length - 1.002) < 0.001, 'Question weights should remain centered around a neutral average.');
 
-assert.match(questions[0].text, /crowded training map/i);
-assert.match(questions[8].text, /Warrior branch/i);
-assert.match(questions[9].text, /Magician branch/i);
-assert.match(questions[10].text, /Bowman branch/i);
-assert.match(questions[11].text, /Thief branch/i);
 assert.equal(context.window.QUIZ_JOB_GUIDES.bandit.length, 2, 'Every job must retain both leveling guide links.');
-
-console.log('Scoring model checks passed: 20 questions, 8 core playstyle + 12 second-job fit, 10 jobs, 20 dimensions, unique prompts, balanced weights, and valid vectors/profiles.');
+console.log('Scoring model checks passed: 20 neutral questions, 8 class playstyle + 12 second-job playstyle, no direct job/skill names, 10 jobs, 20 dimensions, balanced weights, and valid vectors/profiles.');

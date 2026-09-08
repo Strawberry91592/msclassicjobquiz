@@ -4,6 +4,8 @@ import worker from '../worker/worker.js';
 const submissions = [];
 let allowClientSubmission = true;
 let allowIpSubmission = true;
+let throwClientLimiter = false;
+let throwAnalyticsWrite = false;
 const VALID_CLIENT_KEY = 'quiz_test_client_key_7f9a21c8';
 const calls = { client: [], ip: [] };
 
@@ -14,6 +16,7 @@ const env = {
   ANALYTICS_READ_TOKEN: 'test-token',
   RESULTS: {
     writeDataPoint(point) {
+      if (throwAnalyticsWrite) throw new Error('simulated Analytics failure');
       submissions.push(point);
     }
   },
@@ -21,6 +24,7 @@ const env = {
     async limit({ key }) {
       assert.match(key, /^result:[A-Za-z0-9_-]{20,100}$/);
       calls.client.push(key);
+      if (throwClientLimiter) throw new Error('simulated rate-limit failure');
       return { success: allowClientSubmission };
     }
   },
@@ -48,7 +52,26 @@ async function post(body, headers = {}) {
   return worker.fetch(request, env);
 }
 
-let response = await post({ winner: 'bandit', mode: '12', answered: 48 });
+async function options(headers = {}) {
+  const request = new Request('https://stats.example/result', {
+    method: 'OPTIONS',
+    headers: {
+      Origin: 'https://strawberry91592.github.io',
+      ...headers
+    }
+  });
+  return worker.fetch(request, env);
+}
+
+let response = await options();
+assert.equal(response.status, 200, 'A valid CORS preflight should succeed.');
+assert.equal(response.headers.get('Access-Control-Allow-Origin'), 'https://strawberry91592.github.io');
+assert.match(response.headers.get('Access-Control-Allow-Headers') || '', /X-Quiz-Client-Key/i);
+
+response = await options({ Origin: 'https://evil.example' });
+assert.equal(response.status, 403, 'A disallowed Origin must fail CORS preflight.');
+
+response = await post({ winner: 'bandit', mode: '12', answered: 48 });
 assert.equal(response.status, 200, 'A valid eligible submission should be accepted.');
 assert.deepEqual(submissions.at(-1).blobs, ['bandit', '12']);
 assert.equal(submissions.at(-1).doubles[0], 48);
@@ -71,6 +94,17 @@ assert.equal(submissions.length, 1, 'An IP-rate-limited request must not write a
 assert.equal(calls.ip.length, 2, 'The IP limiter should run after the client limiter passes.');
 
 allowIpSubmission = true;
+throwClientLimiter = true;
+response = await post({ winner: 'bandit', mode: '12', answered: 48 });
+assert.equal(response.status, 503, 'A rate-limit service failure must return HTTP 503.');
+assert.equal(submissions.length, 1, 'A failed rate-limit check must not write an Analytics event.');
+throwClientLimiter = false;
+
+throwAnalyticsWrite = true;
+response = await post({ winner: 'bandit', mode: '12', answered: 48 });
+assert.equal(response.status, 503, 'An Analytics write failure must return HTTP 503.');
+throwAnalyticsWrite = false;
+
 response = await post({ winner: 'bandit', mode: '12', answered: 48 }, { 'X-Quiz-Client-Key': '' });
 assert.equal(response.status, 400, 'A missing client key must be rejected.');
 
@@ -85,4 +119,16 @@ assert.equal(response.status, 400, 'Unsupported quiz modes must be rejected.');
 response = await post({ winner: 'bandit', mode: '12', answered: 48 }, { Origin: 'https://evil.example' });
 assert.equal(response.status, 403, 'Submissions from a disallowed Origin must be rejected.');
 
-console.log('Worker checks passed: valid submission, layered client/IP rate limits, client-key validation, eligibility bounds, winner/mode validation, and Origin protection.');
+const malformed = new Request('https://stats.example/result', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    Origin: 'https://strawberry91592.github.io',
+    'X-Quiz-Client-Key': VALID_CLIENT_KEY
+  },
+  body: '{not-json'
+});
+response = await worker.fetch(malformed, env);
+assert.equal(response.status, 400, 'Malformed JSON must be rejected as a client error.');
+
+console.log('Worker checks passed: CORS preflight, valid submission, layered client/IP rate limits, infrastructure-error status handling, client-key validation, eligibility bounds, winner/mode validation, malformed JSON, and Origin protection.');

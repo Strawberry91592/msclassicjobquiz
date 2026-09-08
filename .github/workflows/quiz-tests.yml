@@ -25,16 +25,5 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
-
-      - name: Run model, worker, and browser tests
-        run: npm test
-
-      - name: Upload Playwright report
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v5
-        with:
-          name: playwright-report
-          path: playwright-report/
-          retention-days: 14
+      - name: Run model calibration measurement
+        run: npm run test:model

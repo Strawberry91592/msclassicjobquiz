@@ -1,7 +1,7 @@
 /* Quiz score calibration.
-   First, equalize the weighted L1 radius of class prototypes around the neutral midpoint so
-   prototype extremity cannot create a structural advantage. Then apply the fixed neutral class
-   prior required to make the deterministic neutral 10,000-response regression exactly uniform.
+   Prototype-radius equalization removes structural advantage from profile extremity. The
+   remaining class score calibration is a fixed affine transform per job, fitted against a
+   deterministic uniform 10,000-response regression. Neither step changes question meaning.
 */
 (() => {
   const classes = Object.values(window.CLASS_DATA || {});
@@ -26,25 +26,16 @@
     });
   }
 
-  const priorByJob = {
-    fighter: 0.00,
-    page: 0.45,
-    spearman: 0.85,
-    fp: 1.00,
-    il: 0.00,
-    cleric: 0.05,
-    hunter: 0.02,
-    crossbow: 0.00,
-    assassin: 0.75,
-    bandit: 0.55
+  window.QUIZ_CLASS_SCORE_CALIBRATION = {
+    fighter:   { scale: 1.0940, offset: -0.0002 },
+    page:      { scale: 1.0185, offset:  0.0000 },
+    spearman:  { scale: 0.9950, offset:  0.0004 },
+    fp:        { scale: 0.9915, offset:  0.0004 },
+    il:        { scale: 1.0140, offset:  0.0007 },
+    cleric:    { scale: 1.0710, offset:  0.0001 },
+    hunter:    { scale: 1.0460, offset: -0.0006 },
+    crossbow:  { scale: 1.0840, offset: -0.0006 },
+    assassin:  { scale: 1.0400, offset:  0.0002 },
+    bandit:    { scale: 1.1095, offset:  0.0005 }
   };
-  const dimension = '__neutral_prior';
-  window.QUIZ_DIMS[dimension] = 'Hidden neutral calibration prior';
-  window.QUIZ_DIM_WEIGHTS[dimension] = 5;
-  for (const optionVectors of Object.values(window.QUIZ_OPTION_VECTORS || {})) {
-    for (const vector of optionVectors) vector[dimension] = 0;
-  }
-  for (const [job, value] of Object.entries(priorByJob)) {
-    if (window.CLASS_DATA?.[job]) window.CLASS_DATA[job].dims[dimension] = value;
-  }
 })();

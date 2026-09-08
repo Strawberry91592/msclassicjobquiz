@@ -24,6 +24,21 @@
     "19":[{"setup":0.96,"payoff":0.92,"special":0.84},{"payoff":0.96,"consistency":0.90},{"utility":0.96,"versatility":0.82},{"versatility":0.96,"special":0.82}],
     "20":[{"consistency":0.94,"close":0.82,"payoff":0.82},{"versatility":0.88,"aoe":0.84,"utility":0.78,"setup":0.82},{"party":0.96,"utility":0.94,"versatility":0.90},{"special":0.96,"matchup":0.92,"element":0.72,"setup":0.78}]
   };
+
+  const centeredVectors = {};
+  for (const [questionId, optionVectors] of Object.entries(window.QUIZ_OPTION_VECTORS)) {
+    const dimensions = new Set(optionVectors.flatMap(vector => Object.keys(vector)));
+    centeredVectors[questionId] = optionVectors.map(vector => ({...vector}));
+    for (const dimension of dimensions) {
+      const values = centeredVectors[questionId].map(vector => typeof vector[dimension] === 'number' ? vector[dimension] : 0.5);
+      const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
+      for (let index = 0; index < centeredVectors[questionId].length; index += 1) {
+        centeredVectors[questionId][index][dimension] = Math.max(0, Math.min(1, 0.5 + (values[index] - mean)));
+      }
+    }
+  }
+  window.QUIZ_OPTION_VECTORS = centeredVectors;
+
   window.QUIZ_JOB_GUIDES = {"fighter":[["Lv. 1–30","https://meowdb.com/msclassic/guides/warrior-class-guide"],["Lv. 30–70","https://meowdb.com/msclassic/guides/fighter-class-guide"]],"page":[["Lv. 1–30","https://meowdb.com/msclassic/guides/warrior-class-guide"],["Lv. 30–70","https://meowdb.com/msclassic/guides/page-class-guide"]],"spearman":[["Lv. 1–30","https://meowdb.com/msclassic/guides/warrior-class-guide"],["Lv. 30–70","https://meowdb.com/msclassic/guides/spearman-class-guide"]],"fp":[["Lv. 1–30","https://meowdb.com/msclassic/guides/magician-class-guide"],["Lv. 30–70","https://meowdb.com/msclassic/guides/fp-wizard-class-guide"]],"il":[["Lv. 1–30","https://meowdb.com/msclassic/guides/magician-class-guide"],["Lv. 30–70","https://meowdb.com/msclassic/guides/il-wizard-class-guide"]],"cleric":[["Lv. 1–30","https://meowdb.com/msclassic/guides/magician-class-guide"],["Lv. 30–70","https://meowdb.com/msclassic/guides/cleric-class-guide"]],"hunter":[["Lv. 1–30","https://meowdb.com/msclassic/guides/bowman-leveling-guide-1-30"],["Lv. 30–70","https://meowdb.com/msclassic/guides/hunter-class-guide"]],"crossbow":[["Lv. 1–30","https://meowdb.com/msclassic/guides/bowman-leveling-guide-1-30"],["Lv. 30–70","https://meowdb.com/msclassic/guides/crossbowman-class-guide"]],"assassin":[["Lv. 1–30","https://meowdb.com/msclassic/guides/thief-class-guide"],["Lv. 30–70","https://meowdb.com/msclassic/guides/assassin-class-guide"]],"bandit":[["Lv. 1–30","https://meowdb.com/msclassic/guides/thief-class-guide"],["Lv. 30–70","https://meowdb.com/msclassic/guides/bandit-class-guide"]]};
 
   const statsUrl=()=>String(window.STATS_API_URL||'').replace(/\/$/,'');

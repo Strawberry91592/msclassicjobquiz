@@ -8,18 +8,19 @@ A playstyle quiz for MapleStory Classic World that helps you find the 2nd Job th
 
 ## How It Works
 
-- **48 questions** covering different combat situations and playstyles.
+- **20 questions** covering different combat situations and playstyles.
+- The quiz has **8 core playstyle questions** and **12 2nd Job fit questions**.
 - Select **multiple answers** and rank them in order of preference for each question.
 - Your answers build a playstyle profile that is matched against the different 2nd Jobs.
 - Job profiles use class strengths, weaknesses, and playstyle information from **[NiaMeowDB](https://meowdb.com/)**, alongside other Classic World community sources.
-- You need to answer at least **25 questions** to receive a Job recommendation.
+- You need to answer at least **12 questions** to receive a Job recommendation.
 - There are no right or wrong answers. The quiz is about finding a Job that suits **your playstyle**, not determining which Job is best.
 
 ## Community Results
 
 After completing the quiz, you can see how your result compares with the community, including which Jobs are currently the most common results.
 
-Community results are based on quizzes with at least **30 answered questions**.
+Community results are based on quizzes with at least **15 answered questions**.
 
 ## Features
 

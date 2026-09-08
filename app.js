@@ -1,41 +1,35 @@
 (() => {
-  const allQuestions = window.QUIZ_QUESTIONS || [];
+  const QUESTIONS = window.QUIZ_QUESTIONS || [];
   const CLASS_DATA = window.CLASS_DATA || {};
   const DIM_LABELS = window.QUIZ_DIMS || {};
-  const OPTION_VECTORS = window.QUIZ_OPTION_VECTORS || {};
-  const dims = Object.keys(DIM_LABELS);
-  const modeNames = {12:'Maple Island → 2nd Job'};
-  const RECOMMENDATION_MIN_ANSWERED = 25;
-  const COMMUNITY_MIN_ANSWERED = 30;
+  const VECTORS = window.QUIZ_OPTION_VECTORS || {};
+  const DIMS = Object.keys(DIM_LABELS);
+  const MODE = '12';
+  const MODE_NAME = 'Maple Island → 2nd Job';
+  const RECOMMENDATION_MIN_ANSWERED = 12;
+  const COMMUNITY_MIN_ANSWERED = 15;
 
-  const state = {
-    mode:null,
-    questions:[],
-    index:0,
-    answers:[],
-    results:null,
-    resultSubmitted:false
-  };
-
+  const state = { mode: MODE, questions: QUESTIONS, index: 0, answers: [], resultSubmitted: false };
   const $ = id => document.getElementById(id);
-  const show = el => { if (el) el.classList.remove('hidden'); };
-  const hide = el => { if (el) el.classList.add('hidden'); };
+  const show = el => el?.classList.remove('hidden');
+  const hide = el => el?.classList.add('hidden');
 
   function applyTheme(mode) {
     const night = mode === 'night';
     document.body.classList.toggle('night-mode', night);
-    const btn = $('themeToggle');
-    if (btn) {
-      btn.setAttribute('aria-pressed', String(night));
-      btn.setAttribute('aria-label', night ? 'Switch to day mode' : 'Switch to night mode');
-      btn.title = night ? 'Switch to day mode' : 'Switch to night mode';
-      const icon = btn.querySelector('.theme-icon');
-      const label = btn.querySelector('.theme-toggle-label');
-      if (icon) { icon.textContent = night ? '☾' : '☀'; icon.className = `theme-icon ${night ? 'theme-moon' : 'theme-sun'}`; }
-      if (label) label.textContent = night ? 'Night' : 'Day';
+    const button = $('themeToggle');
+    if (!button) return;
+    button.setAttribute('aria-pressed', String(night));
+    button.setAttribute('aria-label', night ? 'Switch to day mode' : 'Switch to night mode');
+    button.title = night ? 'Switch to day mode' : 'Switch to night mode';
+    const icon = button.querySelector('.theme-icon');
+    const label = button.querySelector('.theme-toggle-label');
+    if (icon) {
+      icon.textContent = night ? '☾' : '☀';
+      icon.className = `theme-icon ${night ? 'theme-moon' : 'theme-sun'}`;
     }
-    const metaTheme = document.querySelector('meta[name="theme-color"]');
-    if (metaTheme) metaTheme.setAttribute('content', night ? '#151f33' : '#5b91c8');
+    if (label) label.textContent = night ? 'Night' : 'Day';
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', night ? '#151f33' : '#5b91c8');
   }
 
   function initTheme() {
@@ -49,269 +43,243 @@
     });
   }
 
-  function questionsForMode() {
-    return allQuestions;
-  }
-
-  function resetState(mode) {
-    state.mode = '12';
-    state.questions = questionsForMode();
+  function resetState() {
     state.index = 0;
-    state.answers = Array.from({length: state.questions.length}, () => ({ranked:[], abstained:false}));
-    state.results = null;
+    state.answers = QUESTIONS.map(() => ({ranked: [], abstained: false}));
     state.resultSubmitted = false;
-  }
-
-  function start(mode='12') {
-    resetState(mode);
-    hide($('results'));
-    show($('quiz'));
-    $('modeLabel').textContent = `${modeNames[state.mode].toUpperCase()}`;
-    renderQuestion();
-    window.scrollTo({top:0,behavior:'smooth'});
   }
 
   function renderQuestion() {
     const q = state.questions[state.index];
-    const saved = state.answers[state.index];
-    const sectionTitles = {
-      'Getting Stronger':'Getting Stronger',
-      'On the Hunt':'On the Hunt',
-      'Moving Through Maple World':'Around Maple World',
-      'Supplies & Mesos':'Supplies & Mesos',
-      'Party Play':'Party Play',
-      'When Things Go Wrong':'When Things Go Wrong',
-      'Trade-offs':'Trade-offs',
-      'The Long Road':'The Long Road',
-      'More Specific':'A Closer Look',
-      'Looking Ahead':'Looking Ahead'
-    };
-    $('sectionLabel').textContent = (sectionTitles[q.section] || q.section).toUpperCase();
+    const answer = state.answers[state.index];
+    $('modeLabel').textContent = MODE_NAME.toUpperCase();
     $('progressText').textContent = `Question ${state.index + 1} of ${state.questions.length}`;
     $('progressBar').style.width = `${((state.index + 1) / state.questions.length) * 100}%`;
-    $('qNumber').textContent = String(state.index + 1).padStart(2,'0');
+    $('qNumber').textContent = String(state.index + 1).padStart(2, '0');
+    $('sectionLabel').textContent = (q.section || '').toUpperCase();
     $('questionText').textContent = q.text;
     $('answers').innerHTML = '';
 
-    q.options.forEach(([letter,text]) => {
-      const el = document.createElement('div');
-      el.className = 'answer';
-      el.dataset.letter = letter;
-      const pos = saved.ranked.indexOf(letter);
-      if (pos >= 0) el.classList.add('selected');
-      if (saved.abstained) el.classList.add('disabled-answer');
+    q.options.forEach(([letter, text]) => {
+      const row = document.createElement('div');
+      row.className = 'answer';
+      row.dataset.letter = letter;
+      const rank = answer.ranked.indexOf(letter);
+      if (rank >= 0) row.classList.add('selected');
+      if (answer.abstained) row.classList.add('disabled-answer');
 
-      const main = document.createElement('button');
-      main.className = 'answer-main';
-      main.type = 'button';
-      main.disabled = saved.abstained;
-      main.innerHTML = `<span class="answer-badge">${letter}</span><span class="answer-text">${text}</span><span class="rank-chip">${pos >= 0 ? `#${pos+1}` : ''}</span>`;
-      main.addEventListener('click', () => toggleRank(letter));
-
-      el.append(main);
-      $('answers').appendChild(el);
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'answer-main';
+      button.disabled = answer.abstained;
+      button.innerHTML = `<span class="answer-badge">${letter}</span><span class="answer-text">${text}</span><span class="rank-chip">${rank >= 0 ? `#${rank + 1}` : ''}</span>`;
+      button.addEventListener('click', () => toggleRank(letter));
+      row.appendChild(button);
+      $('answers').appendChild(row);
     });
 
-    $('abstainBtn').innerHTML = saved.abstained ? 'Skip removed <span class="key-mini">Z</span>' : 'Abstain <span class="key-mini">Z</span>';
+    $('abstainBtn').innerHTML = answer.abstained ? 'Skip removed <span class="key-mini">Z</span>' : 'Abstain <span class="key-mini">Z</span>';
+    $('clearRanking').disabled = answer.abstained && !answer.ranked.length;
     $('backBtn').disabled = state.index === 0;
     $('nextBtn').innerHTML = state.index === state.questions.length - 1 ? 'See Results <span class="key-mini key-space">Space</span>' : 'Next <span class="key-mini key-space">Space</span>';
-    updatePreview();
-  }
-
-  function toggleRank(letter) {
-    const saved = state.answers[state.index];
-    if (saved.abstained) saved.abstained = false;
-    const idx = saved.ranked.indexOf(letter);
-    if (idx >= 0) saved.ranked.splice(idx,1);
-    else saved.ranked.push(letter);
-    renderQuestion();
-  }
-
-  function updatePreview() {
-    const saved = state.answers[state.index];
-    $('rankingPreview').textContent = saved.abstained
+    $('rankingPreview').textContent = answer.abstained
       ? 'Abstained — this question contributes no preference signal.'
-      : saved.ranked.length
-        ? `Your ranking: ${saved.ranked.join(' > ')}`
+      : answer.ranked.length
+        ? `Your ranking: ${answer.ranked.join(' > ')}`
         : 'No choices ranked yet.';
   }
 
-  function keepQuizNavVisible() {
-    if (window.matchMedia('(max-width: 650px)').matches) {
-      $('nextBtn')?.scrollIntoView({behavior:'smooth', block:'nearest'});
-    } else {
-      window.scrollTo({top:0,behavior:'smooth'});
-    }
+  function toggleRank(letter) {
+    const answer = state.answers[state.index];
+    if (answer.abstained) answer.abstained = false;
+    const current = answer.ranked.indexOf(letter);
+    if (current >= 0) answer.ranked.splice(current, 1);
+    else answer.ranked.push(letter);
+    renderQuestion();
   }
 
-  function vectorFor(qId, letter) {
-    const idx = letter.charCodeAt(0) - 65;
-    return OPTION_VECTORS[qId]?.[idx] || {};
+  function keepQuizNavVisible() {
+    if (window.matchMedia('(max-width: 650px)').matches) $('nextBtn')?.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+    else window.scrollTo({top: 0, behavior: 'smooth'});
   }
 
   function normalizedVector(sparse) {
-    const out = {};
-    dims.forEach(d => out[d] = typeof sparse[d] === 'number' ? sparse[d] : 0.5);
-    return out;
+    return Object.fromEntries(DIMS.map(dim => [dim, typeof sparse?.[dim] === 'number' ? sparse[dim] : 0.5]));
   }
 
-  function selectedPreferenceVector(q, answer) {
-    const aggregate = Object.fromEntries(dims.map(d => [d, 0.5]));
-    const evidence = Object.fromEntries(dims.map(d => [d, 0]));
-    let totalWeight = 0;
+  function preferenceFor(question, answer) {
+    const aggregate = Object.fromEntries(DIMS.map(dim => [dim, 0.5]));
+    const evidence = Object.fromEntries(DIMS.map(dim => [dim, 0]));
     answer.ranked.forEach((letter, rank) => {
-      const pref = normalizedVector(vectorFor(q.id, letter));
-      const rankWeight = [1.00, 0.72, 0.50, 0.34][rank] ?? 0.25;
-      const qWeight = Number(window.QUIZ_QUESTION_WEIGHTS?.[q.id] ?? 1);
-      const w = rankWeight * qWeight;
-      totalWeight += w;
-      dims.forEach(d => {
-        const signal = Math.abs(pref[d] - 0.5) * 2;
+      const pref = normalizedVector(VECTORS[question.id]?.[letter.charCodeAt(0) - 65]);
+      const qWeight = Number(window.QUIZ_QUESTION_WEIGHTS?.[question.id] ?? 1);
+      const rankWeight = [1, 0.72, 0.5, 0.34][rank] ?? 0.25;
+      const weight = qWeight * rankWeight;
+      DIMS.forEach(dim => {
+        const signal = Math.abs(pref[dim] - 0.5) * 2;
         if (signal < 0.08) return;
-        aggregate[d] = aggregate[d] * (1 - Math.min(1, w * signal / (evidence[d] + w * signal + 0.0001)))
-          + pref[d] * Math.min(1, w * signal / (evidence[d] + w * signal + 0.0001));
-        evidence[d] += w * signal;
+        const contribution = weight * signal;
+        const prior = evidence[dim];
+        const blend = contribution / (prior + contribution + 0.0001);
+        aggregate[dim] = aggregate[dim] * (1 - blend) + pref[dim] * blend;
+        evidence[dim] += contribution;
       });
     });
-    return {aggregate, evidence, totalWeight};
+    return {aggregate, evidence};
   }
 
-  function score() {
+  function calculateResult() {
     const dimWeights = window.QUIZ_DIM_WEIGHTS || {};
-    const userDims = Object.fromEntries(dims.map(d => [d, 0.5]));
-    const userDimWeight = Object.fromEntries(dims.map(d => [d, 0]));
+    const userDims = Object.fromEntries(DIMS.map(dim => [dim, 0.5]));
+    const userWeights = Object.fromEntries(DIMS.map(dim => [dim, 0]));
     let answered = 0;
     let rankedChoices = 0;
 
-    state.answers.forEach((answer, qIndex) => {
+    state.answers.forEach((answer, index) => {
       if (!answer || answer.abstained || !answer.ranked.length) return;
       answered++;
-      const q = state.questions[qIndex];
-      const {aggregate, evidence} = selectedPreferenceVector(q, answer);
       rankedChoices += answer.ranked.length;
-      dims.forEach(d => {
-        if (!evidence[d]) return;
-        const oldW = userDimWeight[d];
-        const newW = oldW + evidence[d];
-        userDims[d] = oldW ? ((userDims[d] * oldW) + (aggregate[d] * evidence[d])) / newW : aggregate[d];
-        userDimWeight[d] = newW;
+      const {aggregate, evidence} = preferenceFor(state.questions[index], answer);
+      DIMS.forEach(dim => {
+        if (!evidence[dim]) return;
+        const oldWeight = userWeights[dim];
+        const newWeight = oldWeight + evidence[dim];
+        userDims[dim] = oldWeight ? ((userDims[dim] * oldWeight) + (aggregate[dim] * evidence[dim])) / newWeight : aggregate[dim];
+        userWeights[dim] = newWeight;
       });
     });
 
-    const activeDims = dims.filter(d => userDimWeight[d] > 0);
-    const raw = {};
-
+    const activeDims = DIMS.filter(dim => userWeights[dim] > 0);
+    const scores = {};
     Object.entries(CLASS_DATA).forEach(([key, cls]) => {
-      let fitSum = 0;
-      let fitDenom = 0;
-      activeDims.forEach(d => {
-        const w = (dimWeights[d] || 1) * userDimWeight[d];
-        const distance = Math.abs(userDims[d] - cls.dims[d]);
-        fitSum += (1 - Math.min(1, distance)) * w;
-        fitDenom += w;
+      let sum = 0;
+      let denominator = 0;
+      activeDims.forEach(dim => {
+        const weight = (dimWeights[dim] || 1) * userWeights[dim];
+        const distance = Math.abs(userDims[dim] - cls.dims[dim]);
+        sum += (1 - Math.min(1, distance)) * weight;
+        denominator += weight;
       });
-      raw[key] = fitDenom ? fitSum / fitDenom : 0.5;
+      scores[key] = denominator ? (sum / denominator) * 100 : 50;
     });
 
-    const scores = Object.fromEntries(Object.entries(raw).map(([k,v]) => [k, v * 100]));
-
-    return {
-      scores,
-      rawScores:raw,
-      userDims,
-      answered,
-      total:state.questions.length,
-      coverage: state.questions.length ? answered/state.questions.length : 0,
-      rankedChoices,
-      activeDimensionCount:activeDims.length
-    };
+    return {scores, userDims, answered, rankedChoices, total: state.questions.length, activeDimensionCount: activeDims.length};
   }
 
-  function renderBeginnerResult(result) {
+  function resetResultsPanels() {
+    $('leaderboard').innerHTML = '';
+    $('winnerDetails').innerHTML = '';
+    $('sharedStats').innerHTML = '';
+  }
+
+  function renderBeginner(result) {
     $('winnerFamily').textContent = 'MAPLE ISLAND';
     $('winnerName').textContent = 'Beginner';
     $('winnerScore').textContent = 'Beginner';
     $('winnerSummary').textContent = 'You skipped every question. Fair enough. The job recommendation can wait — you have chosen the path of least commitment.';
     $('ringScore').textContent = '—';
     $('confidenceText').textContent = `${result.total}/${result.total} questions skipped • Beginner unlocked`;
-    $('rankingModeLabel').textContent = 'MAPLE ISLAND → 2ND JOB';
-
-    const leaderboard = document.getElementById('leaderboard');
-    if (leaderboard) {
-      leaderboard.innerHTML = `
-        <div class="beginner-result-card">
-          <div class="beginner-emblem">B</div>
-          <div>
-            <strong>You stayed a Beginner.</strong>
-            <p>No answers were ranked, so none of the 10 jobs had enough information to make a recommendation.</p>
-          </div>
-        </div>`;
-    }
-    $('winnerDetails').innerHTML = `
-      <div class="detail-item"><strong>Your grand achievement</strong><p>You answered absolutely nothing. Somehow, that is itself an answer.</p></div>
-      <div class="detail-item tradeoff-card"><strong>The catch</strong><p>Beginners do not get a class recommendation from this result. Take the quiz again when Maple Island calls.</p></div>`;
-    refreshSharedStats();
+    $('rankingModeLabel').textContent = MODE_NAME.toUpperCase();
+    $('leaderboard').innerHTML = `<div class="beginner-result-card"><div class="beginner-emblem">B</div><div><strong>You stayed a Beginner.</strong><p>No answers were ranked, so none of the 10 jobs had enough information to make a recommendation.</p></div></div>`;
+    $('winnerDetails').innerHTML = `<div class="detail-item"><strong>Your grand achievement</strong><p>You answered absolutely nothing. Somehow, that is itself an answer.</p></div><div class="detail-item tradeoff-card"><strong>The catch</strong><p>Beginners do not get a class recommendation from this result.</p></div>`;
+    renderSharedStats();
     hide($('quiz')); show($('results'));
-    window.scrollTo({top:0,behavior:'smooth'});
+    window.scrollTo({top: 0, behavior: 'smooth'});
   }
 
-  function renderInsufficientResult(result) {
+  function renderInsufficient(result) {
     $('winnerFamily').textContent = 'MAPLE ISLAND';
     $('winnerName').textContent = 'Not enough answers';
     $('winnerScore').textContent = 'No Job match yet';
     $('winnerSummary').textContent = `Answer at least ${RECOMMENDATION_MIN_ANSWERED} questions to receive a Job recommendation. You answered ${result.answered} of ${result.total}.`;
     $('ringScore').textContent = '—';
     $('confidenceText').textContent = `${result.answered}/${result.total} questions answered • ${RECOMMENDATION_MIN_ANSWERED} needed for a Job recommendation`;
-    $('rankingModeLabel').textContent = 'MAPLE ISLAND → 2ND JOB';
-
-    const leaderboard = document.getElementById('leaderboard');
-    if (leaderboard) {
-      leaderboard.innerHTML = `
-        <div class="beginner-result-card insufficient-result-card">
-          <div class="beginner-emblem">?</div>
-          <div>
-            <strong>Your result is not ready yet.</strong>
-            <p>The quiz needs at least ${RECOMMENDATION_MIN_ANSWERED} ranked questions before it will tell you which Job best matches your playstyle.</p>
-          </div>
-        </div>`;
-    }
-    $('winnerDetails').innerHTML = `
-      <div class="detail-item"><strong>Why there is no Job match</strong><p>With fewer than ${RECOMMENDATION_MIN_ANSWERED} answered questions, the result can be too heavily influenced by the small number of choices you made. Answer more questions for a more reliable recommendation.</p></div>
-      <div class="detail-item tradeoff-card"><strong>Keep going</strong><p>You can retake the quiz and answer at least ${RECOMMENDATION_MIN_ANSWERED} questions to unlock your Job match.</p></div>`;
-
-    const eligibilityPanel = document.getElementById('communityEligibility');
-    if (eligibilityPanel) {
-      eligibilityPanel.className = 'community-eligibility ineligible';
-      eligibilityPanel.innerHTML = `<strong>Community Results: Not counted</strong><span>At least ${COMMUNITY_MIN_ANSWERED} questions must have a ranked answer before a result is added to the community totals.</span>`;
-    }
-    refreshSharedStats();
+    $('rankingModeLabel').textContent = MODE_NAME.toUpperCase();
+    $('leaderboard').innerHTML = `<div class="beginner-result-card insufficient-result-card"><div class="beginner-emblem">?</div><div><strong>Your result is not ready yet.</strong><p>The quiz needs at least ${RECOMMENDATION_MIN_ANSWERED} ranked questions before it will tell you which Job best matches your playstyle.</p></div></div>`;
+    $('winnerDetails').innerHTML = `<div class="detail-item"><strong>Why there is no Job match</strong><p>With fewer than ${RECOMMENDATION_MIN_ANSWERED} answered questions, the result can be too heavily influenced by the small number of choices you made.</p></div><div class="detail-item tradeoff-card"><strong>Keep going</strong><p>Answer at least ${RECOMMENDATION_MIN_ANSWERED} questions to unlock your Job match.</p></div>`;
+    const eligibility = $('communityEligibility');
+    eligibility.className = 'community-eligibility ineligible';
+    eligibility.innerHTML = `<strong>Community Results: Not counted</strong><span>At least ${COMMUNITY_MIN_ANSWERED} questions must have a ranked answer before a result is added to the community totals.</span>`;
+    renderSharedStats();
     hide($('quiz')); show($('results'));
-    window.scrollTo({top:0,behavior:'smooth'});
+    window.scrollTo({top: 0, behavior: 'smooth'});
   }
 
   function guideMarkup(jobKey) {
     const guides = window.QUIZ_JOB_GUIDES?.[jobKey] || [];
-    if (!guides.length) return '';
-    return `<div class="job-match-guides" aria-label="MeowDB leveling guides">${guides.map(([label,url]) => `<a href="${url}" target="_blank" rel="noopener">${label}</a>`).join('')}</div>`;
+    return guides.length ? `<div class="job-match-guides" aria-label="MeowDB leveling guides">${guides.map(([label, url]) => `<a href="${url}" target="_blank" rel="noopener">${label}</a>`).join('')}</div>` : '';
+  }
+
+  function matchReasons(result, cls) {
+    return DIMS.map(dim => {
+      const userLean = result.userDims[dim] - 0.5;
+      const classLean = (cls.dims[dim] ?? 0.5) - 0.5;
+      const signal = Math.abs(userLean);
+      const sameDirection = Math.sign(userLean) !== 0 && Math.sign(userLean) === Math.sign(classLean);
+      const closeness = 1 - Math.min(1, Math.abs(result.userDims[dim] - (cls.dims[dim] ?? 0.5)));
+      return {dim, score: sameDirection ? signal * closeness : 0};
+    }).filter(item => item.score > 0.12).sort((a, b) => b.score - a.score).slice(0, 3)
+      .map(item => `You leaned toward ${DIM_LABELS[item.dim].toLowerCase()}, which matches ${cls.name}'s playstyle.`).join(' ');
+  }
+
+  async function refreshSharedStats() {
+    const panel = $('sharedStats');
+    if (!window.STATS_API_URL || !panel) return;
+    try {
+      const response = await fetch(`${window.STATS_API_URL.replace(/\/$/, '')}/stats`, {cache: 'no-store'});
+      if (!response.ok) throw new Error('stats failed');
+      const data = await response.json();
+      if (!data?.ok) throw new Error('stats unavailable');
+      renderSharedStats(data);
+    } catch (_) {
+      panel.innerHTML = `<div class="stats-empty">Shared results are not available right now.</div>`;
+    }
+  }
+
+  function renderSharedStats(data = null) {
+    const panel = $('sharedStats');
+    if (!panel) return;
+    const label = $('sharedStatsMeta');
+    if (!window.STATS_API_URL) {
+      if (label) label.textContent = 'Shared counts are not connected right now.';
+      panel.innerHTML = `<div class="stats-empty">The quiz itself works normally. Community counts will appear here when the shared counter is connected.</div>`;
+      return;
+    }
+    if (!data?.ok) {
+      if (label) label.textContent = 'Loading shared results…';
+      panel.innerHTML = `<div class="stats-empty">Loading the latest Maple World results…</div>`;
+      return;
+    }
+    const total = Number(data.total || 0);
+    if (label) label.textContent = `${total} completed quizzes counted`;
+    const sorted = Object.keys(CLASS_DATA).sort((a, b) => Number(data.totals?.[b] || 0) - Number(data.totals?.[a] || 0));
+    panel.innerHTML = `<div class="stats-note">These are aggregate quiz completions. No quiz answers or personal details are stored.</div>` + sorted.map((key, index) => {
+      const count = Number(data.totals?.[key] || 0);
+      const percent = total ? (count / total) * 100 : 0;
+      const cls = CLASS_DATA[key];
+      return `<div class="stats-row"><div class="stats-rank">${index + 1}</div><div class="stats-job"><strong>${cls.name}</strong><span>${cls.family}</span><div class="stats-meter"><i style="width:${Math.min(100, percent)}%"></i></div></div><div class="stats-number"><b>${count}</b><span>${percent.toFixed(1)}%</span></div></div>`;
+    }).join('');
+  }
+
+  async function submitResult(winner, answered) {
+    if (state.resultSubmitted || !window.STATS_API_URL || answered < COMMUNITY_MIN_ANSWERED) return;
+    state.resultSubmitted = true;
+    try {
+      await fetch(`${window.STATS_API_URL.replace(/\/$/, '')}/result`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({winner, mode: MODE, answered})
+      });
+      refreshSharedStats();
+    } catch (_) {}
   }
 
   function renderResults() {
-    const result = score();
-    state.results = result;
+    resetResultsPanels();
+    const result = calculateResult();
+    if (!result.rankedChoices) return renderBeginner(result);
+    if (result.answered < RECOMMENDATION_MIN_ANSWERED) return renderInsufficient(result);
 
-    if (result.rankedChoices === 0) {
-      renderBeginnerResult(result);
-      return;
-    }
-
-    if (result.answered < RECOMMENDATION_MIN_ANSWERED) {
-      renderInsufficientResult(result);
-      return;
-    }
-
-    const sorted = Object.entries(CLASS_DATA).map(([key, cls]) => [key, result.scores[key]])
-      .sort((a,b) => b[1] - a[1]);
-    const [winnerKey,winnerScore] = sorted[0];
+    const sorted = Object.entries(result.scores).sort((a, b) => b[1] - a[1]);
+    const [winnerKey, winnerScore] = sorted[0];
     const winner = CLASS_DATA[winnerKey];
     const eligible = result.answered >= COMMUNITY_MIN_ANSWERED;
 
@@ -321,160 +289,94 @@
     $('winnerSummary').textContent = winner.summary;
     $('ringScore').textContent = `${Math.round(winnerScore)}%`;
     $('confidenceText').textContent = `${result.answered}/${result.total} questions answered • ${winnerScore - sorted[1][1] < 3 ? 'A close call' : 'Clear lead'} over the next match`;
-    $('rankingModeLabel').textContent = 'MAPLE ISLAND → 2ND JOB';
+    $('rankingModeLabel').textContent = MODE_NAME.toUpperCase();
 
-    const leaderHtml = sorted.map(([key,score],i) => {
+    $('leaderboard').innerHTML = `<div class="job-match-grid">${sorted.map(([key, score], index) => {
       const cls = CLASS_DATA[key];
       const delta = winnerScore - score;
-      const note = i === 0
-        ? 'Your strongest match'
-        : (delta < 3 ? 'Very close to your result' : delta < 7 ? 'Close match' : 'Another possible fit');
-      return `<article class="job-match-card ${i===0?'job-match-winner':''}">
-        <div class="job-match-rank">#${i+1}</div>
+      const note = index === 0 ? 'Your strongest match' : delta < 3 ? 'Very close to your result' : delta < 7 ? 'Close match' : 'Another possible fit';
+      const why = matchReasons(result, cls) || `Your overall preference profile was relatively close to ${cls.name}.`;
+      return `<article class="job-match-card ${index === 0 ? 'job-match-winner' : ''}">
+        <div class="job-match-rank">#${index + 1}</div>
         <div class="job-match-body">
           <div class="job-match-title"><h4>${cls.name}</h4><span>${cls.family}</span></div>
           <div class="job-match-score"><strong>${score.toFixed(1)}%</strong><span>Match</span></div>
-          <div class="job-match-bar"><i style="width:${Math.min(100,Math.max(0,score))}%"></i></div>
+          <div class="job-match-bar"><i style="width:${Math.min(100, Math.max(0, score))}%"></i></div>
           <div class="job-match-note">${note}</div>
-          ${i>0 && i<4 ? `<details class="job-match-why"><summary>Why it was close</summary><p>${cls.notes.slice(0,2).join(' ')}</p></details>` : ''}
-          ${i===0 ? `<p class="job-match-description">${cls.summary}</p>` : ''}
+          ${index > 0 && index < 4 ? `<details class="job-match-why"><summary>Why it was close</summary><p>${why}</p></details>` : ''}
+          ${index === 0 ? `<p class="job-match-description">${cls.summary}</p>` : ''}
           ${guideMarkup(key)}
         </div>
       </article>`;
-    }).join('');
-    $('leaderboard').innerHTML = `<div class="job-match-grid">${leaderHtml}</div>`;
+    }).join('')}</div>`;
 
-    const expressedDims = dims.map(d => ({d,v:result.userDims[d],signal:Math.abs(result.userDims[d]-0.5)}))
-      .filter(x=>x.signal>0.08).sort((a,b)=>b.signal-a.signal).slice(0,10);
-    const strongest = expressedDims.slice(0,5).map(x => DIM_LABELS[x.d]);
-    const fitLines = strongest.length ? strongest.map(label => `<span>${label}</span>`).join('') : '<span>Not enough preference signals yet.</span>';
-    $('winnerDetails').innerHTML = `
-      <div class="detail-item"><strong>The things you leaned toward</strong><div class="tag-row">${fitLines}</div></div>
-      <div class="detail-item"><strong>What that looks like on this job</strong><ul class="detail-bullets">${winner.notes.map(n => `<li>${n}</li>`).join('')}</ul></div>
-      <div class="detail-item tradeoff-card"><strong>The catch</strong><p>${winner.dims.close > 0.75 ? 'You will spend plenty of time in close quarters.' : 'You are not tied to close-quarters fighting.'} ${winner.dims.economy > 0.75 ? 'Mesos and upkeep matter more than they do for most paths.' : 'The job does not lean heavily on money management.'} ${winner.dims.party > 0.75 ? 'Party play is a big part of what makes this path shine.' : 'You can get a lot out of this job on your own.'}</p></div>`;
+    const strongest = DIMS.map(dim => ({dim, signal: Math.abs(result.userDims[dim] - 0.5)}))
+      .filter(item => item.signal > 0.08).sort((a, b) => b.signal - a.signal).slice(0, 5)
+      .map(item => `<span>${DIM_LABELS[item.dim]}</span>`).join('');
 
-    renderSharedStats();
-    const eligibilityPanel = document.getElementById('communityEligibility');
-    if (eligibilityPanel) {
-      eligibilityPanel.className = `community-eligibility ${eligible ? 'eligible' : 'ineligible'}`;
-      eligibilityPanel.innerHTML = eligible
-        ? `<strong>Community Results: Counted</strong><span>Your result has been included in the community totals.</span>`
-        : `<strong>Community Results: Not counted</strong><span>At least ${COMMUNITY_MIN_ANSWERED} questions must have a ranked answer before a result is added to the community totals.</span>`;
-    }
+    $('winnerDetails').innerHTML = `<div class="detail-item"><strong>The things you leaned toward</strong><div class="tag-row">${strongest || '<span>Not enough preference signals yet.</span>'}</div></div><div class="detail-item"><strong>What that looks like on this job</strong><ul class="detail-bullets">${winner.notes.map(note => `<li>${note}</li>`).join('')}</ul></div><div class="detail-item tradeoff-card"><strong>The catch</strong><p>${winner.dims.close > 0.75 ? 'You will spend plenty of time in close quarters.' : 'You are not tied to close-quarters fighting.'} ${winner.dims.economy > 0.75 ? 'Mesos and upkeep matter more than they do for most paths.' : 'The job does not lean heavily on money management.'} ${winner.dims.party > 0.75 ? 'Party play is a big part of what makes this path shine.' : 'You can get a lot out of this job on your own.'}</p></div>`;
+
+    const eligibility = $('communityEligibility');
+    eligibility.className = `community-eligibility ${eligible ? 'eligible' : 'ineligible'}`;
+    eligibility.innerHTML = eligible
+      ? '<strong>Community Results: Counted</strong><span>Your result has been included in the community totals.</span>'
+      : `<strong>Community Results: Not counted</strong><span>At least ${COMMUNITY_MIN_ANSWERED} questions must have a ranked answer before a result is added to the community totals.</span>`;
+
     hide($('quiz')); show($('results'));
-
-    submitResult(winnerKey, '12', result.answered, eligible);
-    window.scrollTo({top:0,behavior:'smooth'});
+    renderSharedStats();
+    submitResult(winnerKey, result.answered);
+    window.scrollTo({top: 0, behavior: 'smooth'});
   }
 
-  const STATS_API_URL = window.STATS_API_URL || '';
-
-  async function submitResult(winner, mode, answered, eligible) {
-    if (state.resultSubmitted || !STATS_API_URL || !eligible) return;
-    state.resultSubmitted = true;
-    try {
-      await fetch(`${STATS_API_URL.replace(/\/$/, '')}/result`, {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({winner, mode, answered})
-      });
-      refreshSharedStats();
-    } catch (_) {
-      // Results still work if the optional shared counter is unavailable.
-    }
+  function next() {
+    if (state.index < state.questions.length - 1) {
+      state.index++;
+      renderQuestion();
+      keepQuizNavVisible();
+    } else renderResults();
   }
 
-  async function refreshSharedStats() {
-    if (!STATS_API_URL) return;
-    const panel = $('sharedStats');
-    if (!panel) return;
-    try {
-      const res = await fetch(`${STATS_API_URL.replace(/\/$/, '')}/stats`, {cache:'no-store'});
-      if (!res.ok) throw new Error('stats failed');
-      const data = await res.json();
-      if (!data.ok) throw new Error('stats unavailable');
-      renderSharedStats(data);
-    } catch (_) {
-      panel.innerHTML = `<div class="stats-empty">Shared results are not available right now.</div>`;
-    }
+  function start() {
+    resetState();
+    hide($('results'));
+    show($('quiz'));
+    renderQuestion();
+    window.scrollTo({top: 0, behavior: 'smooth'});
   }
 
-  function renderSharedStats(data=null) {
-    const panel = $('sharedStats');
-    if (!panel) return;
-    const label = $('sharedStatsMeta');
-    if (!STATS_API_URL) {
-      if (label) label.textContent = 'Shared counts will appear here after the site owner connects the results counter.';
-      panel.innerHTML = `<div class="stats-empty"><strong>The counter is not connected yet.</strong><span>The quiz itself works normally. When the shared counter is connected, this section will show how often each job path was the final match.</span></div>`;
-      return;
-    }
-    if (!data?.ok) {
-      if (label) label.textContent = 'Loading shared results…';
-      panel.innerHTML = `<div class="stats-empty">Loading the latest Maple World results…</div>`;
-      return;
-    }
-    if (label) label.textContent = `${data.total || 0} completed quizzes counted`;
-    const total = Number(data.total || 0);
-    const sorted = Object.keys(CLASS_DATA).sort((a,b)=>(data.totals[b]||0)-(data.totals[a]||0));
-    panel.innerHTML = `<div class="stats-note">These are aggregate quiz completions. No quiz answers or personal details are stored.</div>` + sorted.map((key,i) => {
-      const count = Number(data.totals?.[key] || 0);
-      const pct = total ? (count / total * 100) : 0;
-      const cls = CLASS_DATA[key];
-      return `<div class="stats-row"><div class="stats-rank">${i+1}</div><div class="stats-job"><strong>${cls.name}</strong><span>${cls.family}</span><div class="stats-meter"><i style="width:${Math.min(100,pct)}%"></i></div></div><div class="stats-number"><b>${count}</b><span>${pct.toFixed(1)}%</span></div></div>`;
-    }).join('');
-  }
-
-  function retake() { start(); }
-
-  document.addEventListener('keydown', (event) => {
+  document.addEventListener('keydown', event => {
     if ($('quiz').classList.contains('hidden')) return;
+    const target = document.activeElement;
+    if (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return;
     const key = event.key.toUpperCase();
-    const active = document.activeElement;
-    const typing = active && ['INPUT','TEXTAREA','SELECT'].includes(active.tagName);
-    if (typing) return;
-
     if (/^[A-D]$/.test(key)) {
       const q = state.questions[state.index];
-      if (q?.options.some(([letter]) => letter === key)) {
-        event.preventDefault();
-        toggleRank(key);
-      }
+      if (q?.options.some(([letter]) => letter === key)) { event.preventDefault(); toggleRank(key); }
       return;
     }
     if (key === 'Z') {
       event.preventDefault();
-      const a = state.answers[state.index];
-      a.ranked = [];
-      a.abstained = !a.abstained;
+      const answer = state.answers[state.index];
+      answer.ranked = [];
+      answer.abstained = !answer.abstained;
       renderQuestion();
       return;
     }
     if (key === 'X') {
       event.preventDefault();
-      state.answers[state.index] = {ranked:[],abstained:false};
+      state.answers[state.index] = {ranked: [], abstained: false};
       renderQuestion();
       return;
     }
-    if (event.code === 'Space') {
-      event.preventDefault();
-      if (state.index < state.questions.length - 1) {
-        state.index++;
-        renderQuestion();
-        keepQuizNavVisible();
-      } else {
-        renderResults();
-      }
-    }
+    if (event.code === 'Space') { event.preventDefault(); next(); }
   });
 
   initTheme();
-
-  $('clearRanking').addEventListener('click', () => { state.answers[state.index] = {ranked:[],abstained:false}; renderQuestion(); });
-  $('abstainBtn').addEventListener('click', () => { const a = state.answers[state.index]; a.ranked=[]; a.abstained=!a.abstained; renderQuestion(); });
-  $('backBtn').addEventListener('click', () => { if (state.index>0) { state.index--; renderQuestion(); window.scrollTo({top:0,behavior:'smooth'}); } });
-  $('nextBtn').addEventListener('click', () => { if (state.index < state.questions.length-1) { state.index++; renderQuestion(); keepQuizNavVisible(); } else renderResults(); });
+  $('clearRanking').addEventListener('click', () => { state.answers[state.index] = {ranked: [], abstained: false}; renderQuestion(); });
+  $('abstainBtn').addEventListener('click', () => { const answer = state.answers[state.index]; answer.ranked = []; answer.abstained = !answer.abstained; renderQuestion(); });
+  $('backBtn').addEventListener('click', () => { if (state.index > 0) { state.index--; renderQuestion(); window.scrollTo({top: 0, behavior: 'smooth'}); } });
+  $('nextBtn').addEventListener('click', next);
   $('quitBtn').addEventListener('click', () => { if (confirm('Restart and clear your current answers?')) start(); });
-  $('retakeBtn').addEventListener('click', retake);
-
-  start('12');
+  $('retakeBtn').addEventListener('click', start);
+  start();
 })();

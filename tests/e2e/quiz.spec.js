@@ -117,27 +117,23 @@ test('results omit the redundant progression section', async ({ page }) => {
   await expect(page.locator('.stage')).toHaveCount(0);
 });
 
-test('playstyle signals compare two explicit bars without the old marker', async ({ page }) => {
+test('results no longer render the redundant playstyle section or signal markup', async ({ page }) => {
   await mockStats(page, { page: 1 });
   await page.goto('/index.html');
   await advanceToResults(page, 48);
 
-  const winnerName = await page.locator('#winnerName').textContent();
-  const cards = page.locator('.playstyle-panel .signal-card');
-  await expect(cards).toHaveCount(6);
-  await expect(cards.first()).toContainText('YOU');
-  await expect(cards.first()).toContainText(winnerName || '');
-  await expect(cards.first().locator('.signal-compare-row')).toHaveCount(2);
-  await expect(cards.first().locator('.signal-marker')).toHaveCount(0);
-  await expect(cards.first().locator('.signal-compare-you .signal-compare-track i')).toHaveAttribute('style', /width:/);
-  await expect(cards.first().locator('.signal-compare-job .signal-compare-track i')).toHaveAttribute('style', /width:/);
-  await expect(cards.first()).toContainText(/Very similar preference|You prefer this more|leans higher/);
+  await expect(page.locator('.playstyle-panel')).toHaveCount(0);
+  await expect(page.locator('#profileBars')).toHaveCount(0);
+  await expect(page.locator('.signal-card')).toHaveCount(0);
+  await expect(page.locator('.signal-marker')).toHaveCount(0);
 });
-
 test('results-page community rankings reuse the compact popup layout', async ({ page }) => {
   await mockStats(page, { assassin: 1 });
   await page.goto('/index.html');
   await advanceToResults(page, 30);
+
+  await expect(page.locator('.shared-stats-panel h3')).toHaveText('Community Results');
+  await expect(page.locator('.shared-stats-panel .panel-mark')).toHaveCount(0);
 
   const rows = page.locator('.shared-stats-panel .stats-row');
   await expect(rows).toHaveCount(10);

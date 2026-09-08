@@ -226,7 +226,6 @@
     $('ringScore').textContent = '—';
     $('confidenceText').textContent = `${result.total}/${result.total} questions skipped • Beginner unlocked`;
     $('rankingModeLabel').textContent = 'MAPLE ISLAND → 2ND JOB';
-    $('coverageText').textContent = '0% of questions answered';
 
     const leaderboard = document.getElementById('leaderboard');
     if (leaderboard) {
@@ -239,8 +238,6 @@
           </div>
         </div>`;
     }
-
-    $('profileBars').innerHTML = `<div class="empty-note beginner-note"><strong>Nothing to read yet.</strong><span>You successfully dodged every single question. Your playstyle remains a mystery.</span></div>`;
     $('winnerDetails').innerHTML = `
       <div class="detail-item"><strong>Your grand achievement</strong><p>You answered absolutely nothing. Somehow, that is itself an answer.</p></div>
       <div class="detail-item tradeoff-card"><strong>The catch</strong><p>Beginners do not get a class recommendation from this result. Take the quiz again when Maple Island calls.</p></div>`;
@@ -271,7 +268,6 @@
     $('ringScore').textContent = `${Math.round(winnerScore)}%`;
     $('confidenceText').textContent = `${result.answered}/${result.total} questions answered • ${winnerScore - sorted[1][1] < 3 ? 'A close call' : 'Clear lead'} over the next match`;
     $('rankingModeLabel').textContent = 'MAPLE ISLAND → 2ND JOB';
-    $('coverageText').textContent = `${result.answered}/${result.total} questions answered`;
 
     const leaderHtml = sorted.map(([key,score],i) => {
       const cls = CLASS_DATA[key];
@@ -295,18 +291,6 @@
 
     const expressedDims = dims.map(d => ({d,v:result.userDims[d],signal:Math.abs(result.userDims[d]-0.5)}))
       .filter(x=>x.signal>0.08).sort((a,b)=>b.signal-a.signal).slice(0,10);
-    $('profileBars').innerHTML = expressedDims.length ? expressedDims.slice(0,6).map(({d,v}) => {
-      const userPct = Math.round(v*100);
-      const classPct = Math.round((winner.dims[d] ?? 0.5)*100);
-      const delta = userPct - classPct;
-      const tone = Math.abs(delta) < 8 ? 'close' : delta > 0 ? 'you-higher' : 'job-higher';
-      const read = Math.abs(delta) < 8 ? 'Close match' : delta > 0 ? 'You lean higher' : 'Job leans higher';
-      return `<div class="signal-card ${tone}">
-        <div class="signal-top"><div><strong>${DIM_LABELS[d]}</strong><span>${read}</span></div><div class="signal-values"><b>${userPct}%</b><em>you</em><span>${classPct}%</span><em>${winner.name}</em></div></div>
-        <div class="signal-track"><div class="signal-user" style="width:${userPct}%"></div><div class="signal-marker" style="left:${classPct}%" aria-hidden="true"></div></div>
-      </div>`;
-    }).join('') : `<p class="empty-note">Not enough ranked answers to build a strong playstyle read. Rank a few choices, or skip questions you are unsure about.</p>`;
-
     const strongest = expressedDims.slice(0,5).map(x => DIM_LABELS[x.d]);
     const fitLines = strongest.length ? strongest.map(label => `<span>${label}</span>`).join('') : '<span>Not enough preference signals yet.</span>';
     $('winnerDetails').innerHTML = `

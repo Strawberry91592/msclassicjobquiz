@@ -123,43 +123,6 @@
     });
   }
 
-  function simplifySignalCards(){
-    const container=document.getElementById('profileBars');
-    if(!container) return;
-    const cards=[...container.querySelectorAll('.signal-card')].filter(card=>card.querySelector('.signal-marker'));
-    if(!cards.length) return;
-
-    cards.forEach(card=>{
-      const label=card.querySelector('.signal-top strong')?.textContent?.trim() || 'Playstyle signal';
-      const userPct=card.querySelector('.signal-values b')?.textContent?.trim() || '0%';
-      const jobPct=card.querySelector('.signal-values span')?.textContent?.trim() || '0%';
-      const jobName=card.querySelectorAll('.signal-values em')[1]?.textContent?.trim() || 'Your job';
-      const userValue=Number.parseInt(userPct,10) || 0;
-      const jobValue=Number.parseInt(jobPct,10) || 0;
-      const delta=Math.abs(userValue-jobValue);
-      const interpretationText = delta < 8 ? 'Very similar preference' :
-        userValue > jobValue ? 'You prefer this more' : `${jobName} leans higher`;
-
-      card.innerHTML=`
-        <div class="signal-heading">
-          <div>
-            <strong>${label}</strong>
-            <span>${interpretationText}</span>
-          </div>
-        </div>
-        <div class="signal-compare" aria-label="${label}: you ${userPct}, ${jobName} ${jobPct}">
-          <div class="signal-compare-row signal-compare-you">
-            <div class="signal-compare-label"><span>YOU</span><b>${userPct}</b></div>
-            <div class="signal-compare-track"><i style="width:${userPct}"></i></div>
-          </div>
-          <div class="signal-compare-row signal-compare-job">
-            <div class="signal-compare-label"><span>${jobName}</span><b>${jobPct}</b></div>
-            <div class="signal-compare-track"><i style="width:${jobPct}"></i></div>
-          </div>
-        </div>`;
-      card.dataset.signalSimplified='true';
-    });
-  }
 
   // Analytics Engine writes are non-blocking. A just-accepted submission can be
   // temporarily absent from the read path, so retry an immediately-empty GET.
@@ -207,8 +170,6 @@
     simplifySignalCards();
     const leaderboard=document.getElementById('leaderboard');
     if(leaderboard)new MutationObserver(addGuideLinks).observe(leaderboard,{childList:true,subtree:true});
-    const profileBars=document.getElementById('profileBars');
-    if(profileBars)new MutationObserver(simplifySignalCards).observe(profileBars,{childList:true,subtree:true});
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();

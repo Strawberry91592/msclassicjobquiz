@@ -1,27 +1,8 @@
 /* v2.0 score calibration and community reset notice.
-   The calibration keeps the proven per-dimension profile normalization and adds a
-   constant hidden prior dimension. The prior cannot encode a respondent choice;
-   it only balances the neutral answer-space geometry across the ten jobs.
+   The calibration uses the proven hidden neutral-prior structure. The prior cannot
+   encode a respondent choice; it only balances neutral answer-space geometry.
 */
 (() => {
-  const classes = Object.values(window.CLASS_DATA || {});
-  const dimensions = Object.keys(window.QUIZ_DIMS || {});
-
-  for (const dimension of dimensions) {
-    const values = classes.map(cls => Number(cls.dims?.[dimension] ?? 0.5));
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-    if (!(max > min)) {
-      classes.forEach(cls => { cls.dims[dimension] = 0.5; });
-      continue;
-    }
-    const span = max - min;
-    classes.forEach(cls => {
-      const value = Number(cls.dims?.[dimension] ?? 0.5);
-      cls.dims[dimension] = 0.15 + ((value - min) / span) * 0.70;
-    });
-  }
-
   const priorByJob = {
     fighter: 0.00,
     page: 0.45,

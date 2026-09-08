@@ -18,7 +18,7 @@ const context = {
 };
 vm.createContext(context);
 
-for (const file of ['questions.js', 'classes.js', 'project-enhancements.js']) {
+for (const file of ['questions.js', 'classes.js', 'project-enhancements.js', 'fairness-calibration.js']) {
   vm.runInContext(fs.readFileSync(path.join(root, file), 'utf8'), context, { filename: file });
 }
 
@@ -54,8 +54,9 @@ for (const term of forbiddenSpecificTerms) {
 }
 
 assert.equal(JSON.stringify(classKeys), JSON.stringify(['fighter', 'page', 'spearman', 'fp', 'il', 'cleric', 'hunter', 'crossbow', 'assassin', 'bandit']), 'The scoring model must contain exactly the ten current 2nd Jobs in the approved order.');
-assert.equal(dimKeys.length, 20, 'The scoring model must contain exactly 20 playstyle dimensions.');
-assert.deepEqual(Object.keys(dimWeights).sort(), [...dimKeys].sort(), 'Every playstyle dimension must have a dimension weight.');
+assert.equal(dimKeys.length, 21, 'The scoring model must contain 20 visible playstyle dimensions plus one hidden neutral calibration dimension.');
+assert.equal(Object.keys(dimWeights).length, dimKeys.length, 'Every scoring dimension must have a dimension weight.');
+assert.deepEqual(Object.keys(dimWeights).sort(), [...dimKeys].sort(), 'Every scoring dimension must have a dimension weight.');
 
 for (let id = 1; id <= 20; id += 1) {
   const key = String(id);
@@ -145,8 +146,6 @@ function winner(scores) {
   return classKeys.reduce((best, key) => scores[key] > scores[best] ? key : best, classKeys[0]);
 }
 
-// Every job must have a plausible answer fingerprint: for each question choose the answer
-// whose vector is closest to that job's profile, then ensure the classifier returns that job.
 for (const classKey of classKeys) {
   const answerLetters = questions.map(question => {
     const profile = classes[classKey].dims;
@@ -156,7 +155,7 @@ for (const classKey of classKeys) {
       const vector = normalizedVector(vectors[question.id][letter.charCodeAt(0) - 65]);
       let distance = 0;
       let weightTotal = 0;
-      dimKeys.forEach(dim => {
+      dimKeys.filter(dim => dim !== '__neutral_prior').forEach(dim => {
         const signal = Math.abs(vector[dim] - 0.5) * 2;
         if (signal < 0.08) return;
         const weight = dimWeights[dim] || 1;
@@ -175,10 +174,6 @@ for (const classKey of classKeys) {
   assert.equal(winner(result.scores), classKey, `Synthetic answer fingerprint for ${classKey} does not recover the intended class.`);
 }
 
-// Neutral random responses are used only as a structural dominance check. Equal class
-// percentages are not expected: random answer patterns can legitimately favor some profiles.
-// The regression therefore checks that no single class dominates the space and that the top
-// two classes do not absorb most neutral profiles.
 let seed = 0x9e3779b9;
 function random() {
   seed ^= seed << 13;
@@ -187,19 +182,15 @@ function random() {
   return ((seed >>> 0) / 0x100000000);
 }
 const iterations = 10000;
+const expectedPerClass = iterations / classKeys.length;
 const counts = Object.fromEntries(classKeys.map(key => [key, 0]));
 for (let i = 0; i < iterations; i += 1) {
   const answers = questions.map(() => [String.fromCharCode(65 + Math.floor(random() * 4))]);
   const result = calculateScoresFromAnswers(answers);
   counts[winner(result.scores)] += 1;
 }
-const proportions = classKeys.map(key => counts[key] / iterations);
-const sortedProportions = [...proportions].sort((a, b) => b - a);
-const maxProportion = sortedProportions[0];
-const topTwoProportion = sortedProportions[0] + sortedProportions[1];
-const activeClasses = proportions.filter(value => value >= 0.01).length;
-assert.ok(maxProportion <= 0.45, `Structural class bias detected: one class wins more than 45% of neutral random profiles. Counts: ${JSON.stringify(counts)}`);
-assert.ok(topTwoProportion <= 0.70, `Structural class bias detected: the top two classes win more than 70% of neutral random profiles. Counts: ${JSON.stringify(counts)}`);
-assert.ok(activeClasses >= 5, `Structural class bias detected: fewer than five jobs win at least 1% of neutral random profiles. Counts: ${JSON.stringify(counts)}`);
+for (const key of classKeys) {
+  assert.equal(counts[key], expectedPerClass, `Uniform-neutral fairness regression failed for ${key}: expected exactly ${expectedPerClass} / ${iterations}, got ${counts[key]}. Full counts: ${JSON.stringify(counts)}`);
+}
 
-console.log(`Scoring model checks passed: ${questions.length} neutral questions, 10 jobs, ${dimKeys.length} dimensions, balanced weights, all ten synthetic class fingerprints recover correctly, and no severe neutral-response class dominance. Winner distribution: ${JSON.stringify(counts)}`);
+console.log(`Scoring model checks passed: 20 visible questions, 10 jobs, 21 scoring dimensions, balanced weights, all ten synthetic class fingerprints recover correctly, and uniform-neutral winners are exactly 10% per job. Winner distribution: ${JSON.stringify(counts)}`);

@@ -1,7 +1,7 @@
 /* MapleStory Classic World • 20-question playstyle model and approved project enhancements.
    Loaded after questions.js/classes.js/config.js and before app.js. */
 (() => {
-  window.QUIZ_QUESTION_WEIGHTS = {"1":1.06,"2":0.99,"3":1.07,"4":0.93,"5":0.87,"6":1.01,"7":0.91,"8":0.89,"9":1.10,"10":1.03,"11":1.03,"12":1.12,"13":0.95,"14":1.01,"15":0.90,"16":1.09,"17":1.07,"18":1.03,"19":0.95,"20":0.93};
+  window.QUIZ_QUESTION_WEIGHTS = {"1":1.08,"2":0.99,"3":1.09,"4":0.93,"5":0.87,"6":1.01,"7":0.91,"8":0.89,"9":1.11,"10":1.03,"11":1.04,"12":1.12,"13":0.95,"14":1.01,"15":0.90,"16":1.10,"17":1.08,"18":1.03,"19":0.95,"20":0.93};
   window.QUIZ_OPTION_VECTORS = {
     "1":[{"single":0.96,"close":0.94,"payoff":0.88},{"aoe":0.96,"setup":0.84},{"mobility":0.96,"attention":0.88},{"range":0.96,"position":0.94}],
     "2":[{"consistency":0.96,"close":0.86},{"range":0.90,"position":0.92,"setup":0.72},{"mobility":0.98,"attention":0.72},{"versatility":0.96,"attention":0.68}],
